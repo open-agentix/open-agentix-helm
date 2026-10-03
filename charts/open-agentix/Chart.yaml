@@ -28,3 +28,17 @@ annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/prerelease: "true"
   artifacthub.io/containsSecurityUpdates: "false"
+# Optional bundled services. Disabled by default: the chart expects an external PostgreSQL and,
+# optionally, an external Valkey/Redis. Exact versions are pinned; the archive digests are listed
+# in dependency-digests.txt and verified in CI after `helm dependency build`.
+dependencies:
+  - name: postgres
+    alias: postgresql
+    version: 1.6.8
+    repository: https://groundhog2k.github.io/helm-charts/
+    condition: postgresql.enabled
+  - name: valkey
+    alias: valkey
+    version: 2.3.4
+    repository: https://groundhog2k.github.io/helm-charts/
+    condition: valkey.enabled
