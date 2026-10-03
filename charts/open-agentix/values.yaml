@@ -165,6 +165,8 @@ postgresql:
     requestedSize: 8Gi
     # -- StorageClass (empty = cluster default).
     className: ""
+    # -- Keep the data PVC on `helm uninstall`.
+    keepPvc: true
   # -- Adds seccomp RuntimeDefault so the pod passes PodSecurity `restricted`.
   podSecurityContext:
     seccompProfile: { type: RuntimeDefault }
@@ -505,7 +507,7 @@ worker:
   topologySpreadConstraints: []
   # -- Priority class.
   priorityClassName: ""
-  # -- Grace period; running runs are released (lease) on SIGTERM.
+  # -- Grace period after SIGTERM; unfinished runs are requeued when their lease expires.
   terminationGracePeriodSeconds: 60
   # -- Extra env vars.
   extraEnv: []
