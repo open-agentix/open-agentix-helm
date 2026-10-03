@@ -1,0 +1,11 @@
+# chart-testing configuration (https://github.com/helm/chart-testing)
+chart-dirs:
+  - charts
+chart-repos:
+  - groundhog2k=https://groundhog2k.github.io/helm-charts/
+target-branch: main
+validate-maintainers: false
+lint-conf: .github/ct-lintconf.yaml
+helm-extra-args: --timeout 600s
+namespace: oax-ci
+release-label: app.kubernetes.io/instance

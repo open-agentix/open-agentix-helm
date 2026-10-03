@@ -2,6 +2,6 @@
 runToken:
   existingSecret: oax-run-token
 externalDatabase:
-  host: postgres.oax-ci.svc.cluster.local
+  host: postgres.oax-ci-db.svc.cluster.local
   sslmode: disable
   existingSecret: oax-db
