@@ -1,0 +1,73 @@
+# Air-gapped cluster: images from an internal registry pinned by digest, no internet egress,
+# models served by Ollama inside the cluster (namespace "ollama"). Nothing leaves the cluster.
+image:
+  registry: registry.internal.example
+  pullSecrets:
+    - internal-registry
+  api:
+    repository: mirror/open-agentix/open-agentix-api
+    tag: "0.1.0"
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  worker:
+    repository: mirror/open-agentix/open-agentix-worker
+    tag: "0.1.0"
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+config:
+  providers:
+    - kind: ollama
+      name: ollama
+      baseUrl: http://ollama.ollama.svc.cluster.local:11434
+      clearance: restricted
+  priceTable: []
+
+externalDatabase:
+  host: postgres-rw.databases.svc.cluster.local
+  sslmode: verify-full
+  existingSecret: oax-db
+
+runToken:
+  existingSecret: oax-run-token
+
+audit:
+  signingKey:
+    existingSecret: oax-audit-signing-key
+
+auth:
+  ldap:
+    enabled: true
+    url: ldaps://ldap.internal.example:636
+    bindDn: cn=openagentix,ou=services,dc=internal,dc=example
+    userBaseDn: ou=people,dc=internal,dc=example
+    roleMapping:
+      cn=agent-admins,ou=groups,dc=internal,dc=example: admin
+      cn=agent-auditors,ou=groups,dc=internal,dc=example: auditor
+    existingSecret: oax-ldap
+
+ingress:
+  enabled: true
+  className: nginx
+  host: agents.internal.example
+  tls:
+    enabled: true
+    secretName: agents-internal-tls
+
+networkPolicy:
+  enabled: true
+  egress:
+    database:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: databases
+    auth:
+      - to:
+          - ipBlock: { cidr: 10.0.10.5/32 }
+        ports:
+          - { protocol: TCP, port: 636 }
+    providers:
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: ollama
+        ports:
+          - { protocol: TCP, port: 11434 }

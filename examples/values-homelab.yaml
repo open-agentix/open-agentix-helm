@@ -1,0 +1,60 @@
+# Single-node homelab: one replica each, external PostgreSQL on the LAN, nginx ingress with
+# cert-manager, local admin plus an Ollama on another LAN host.
+config:
+  providers:
+    - kind: simulated
+      name: simulated
+    - kind: ollama
+      name: ollama
+      baseUrl: http://192.168.1.50:11434
+      clearance: restricted
+
+externalDatabase:
+  host: 192.168.1.40
+  sslmode: disable
+  existingSecret: oax-db
+
+runToken:
+  existingSecret: oax-run-token
+
+auth:
+  bootstrapAdmin:
+    enabled: true
+    email: admin@home.example
+    existingSecret: oax-admin
+
+defaultTopologySpread: false
+
+api:
+  replicaCount: 1
+  resources:
+    requests: { cpu: 50m, memory: 192Mi }
+    limits: { memory: 384Mi }
+worker:
+  replicaCount: 1
+  concurrency: 2
+
+ingress:
+  enabled: true
+  className: nginx
+  host: agents.home.example
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/proxy-body-size: 1m
+    # Server-sent events (run streams) must not be buffered.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+  tls:
+    enabled: true
+    secretName: agents-home-tls
+
+networkPolicy:
+  enabled: true
+  egress:
+    database:
+      - ipBlock: { cidr: 192.168.1.40/32 }
+    providers:
+      - to:
+          - ipBlock: { cidr: 192.168.1.50/32 }
+        ports:
+          - { protocol: TCP, port: 11434 }
