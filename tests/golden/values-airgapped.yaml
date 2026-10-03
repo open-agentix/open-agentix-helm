@@ -6,7 +6,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -79,7 +79,7 @@ metadata:
   name: oax-open-agentix-default-deny
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/version: "0.1.0"
@@ -101,7 +101,7 @@ metadata:
   name: oax-open-agentix-migrations
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: migrations
@@ -146,7 +146,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -212,7 +212,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -234,7 +234,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -250,7 +250,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -266,7 +266,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -292,7 +292,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -316,7 +316,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.1.0
+        helm.sh/chart: open-agentix-0.1.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: api
@@ -498,7 +498,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -522,7 +522,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.1.0
+        helm.sh/chart: open-agentix-0.1.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: worker
@@ -689,7 +689,7 @@ metadata:
   name: oax-open-agentix
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/version: "0.1.0"
@@ -720,7 +720,7 @@ metadata:
   name: oax-open-agentix-migrations
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.0
+    helm.sh/chart: open-agentix-0.1.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: migrations
@@ -738,7 +738,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.1.0
+        helm.sh/chart: open-agentix-0.1.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: migrations

@@ -6,6 +6,16 @@ All notable changes to the charts in this repository are documented here. The fo
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-03
+
+### Fixed
+
+- Removed the non-standard `license` key from `Chart.yaml` (chart-testing schema); the license stays in the `artifacthub.io/license` annotation.
+
+### Added
+
+- Golden files rendered by Helm in CI for all seven render cases.
+
 ## [0.1.0] - 2026-10-03
 
 First release of the `open-agentix` chart (appVersion 0.1.0).
