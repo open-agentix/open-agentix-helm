@@ -1,0 +1,1327 @@
+---
+# Source: open-agentix/templates/networkpolicy/api.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-api
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Ingress controller / load balancer.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - { protocol: TCP, port: 8080 }
+    # Worker pods (run-token channel for remote workers).
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: worker
+      ports:
+        - { protocol: TCP, port: 8080 }
+  egress:
+    
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: oax
+      ports:
+        - { protocol: TCP, port: 5432 }
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: valkey
+              app.kubernetes.io/instance: oax
+      ports:
+        - { protocol: TCP, port: 6379 }
+---
+# Source: open-agentix/templates/networkpolicy/default-deny.yaml
+# Default deny: every pod of this release (api, worker, ui, migrations) starts with no ingress
+# and no egress; the policies next to this file open exactly what each component needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-default-deny
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Source: open-agentix/templates/networkpolicy/migrations.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-migrations
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: migrations
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: migrations
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: oax
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# Source: open-agentix/templates/networkpolicy/worker.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-worker
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: worker
+  policyTypes:
+    - Ingress
+    - Egress
+  # No ingress: the worker pulls work from the queue.
+  ingress: []
+  egress:
+    
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/instance: oax
+      ports:
+        - { protocol: TCP, port: 5432 }
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: valkey
+              app.kubernetes.io/instance: oax
+      ports:
+        - { protocol: TCP, port: 6379 }
+    # Control node API (policy gate / run-token channel).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: api
+      ports:
+        - { protocol: TCP, port: 8080 }
+---
+# Source: open-agentix/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oax-open-agentix-api
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+automountServiceAccountToken: false
+---
+# Source: open-agentix/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oax-open-agentix-worker
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+automountServiceAccountToken: false
+---
+# Source: open-agentix/charts/postgresql/templates/scripts.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oax-postgresql-scripts
+  labels:
+    helm.sh/chart: postgresql-1.6.8
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "18.6"
+    app.kubernetes.io/managed-by: Helm
+data:
+  01-init-userdb.sh: |
+    #!/bin/sh
+    create_user()
+    {
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" -v USERDBNAME="$POSTGRES_DB" -v USERDBUSER="$USERDB_USER" -v USERDBPASSWORD="$USERDB_PASSWORD" <<-EOSQL
+      CREATE USER :"USERDBUSER" WITH PASSWORD :'USERDBPASSWORD';
+      GRANT ALL PRIVILEGES ON DATABASE :"USERDBNAME" TO :"USERDBUSER";
+      ALTER DATABASE :"USERDBNAME" OWNER TO :"USERDBUSER";
+    EOSQL
+    }
+    set -e
+    if [ ! -z "$POSTGRES_DB" ] && [ ! -z "$USERDB_USER" ] && [ ! -z "$USERDB_PASSWORD" ]; then
+      create_user
+    fi
+  init.sh: |
+    #!/bin/sh
+    echo "Start initialization"
+    echo "Copy init-userdb script"
+    cp /initscripts/01-init-userdb.sh /scripts
+    if [ -d /extrascripts ]; then
+      echo "Copy extra scripts"
+      cp /extrascripts/* /scripts
+    fi
+    if [ -d /customscripts ]; then
+      echo "Copy custom scripts"
+      cp /customscripts/* /scripts
+    fi
+    if [ -d /customconfig ]; then
+      echo "Create postgres config"
+      cat /customconfig/* >>/configs/postgresql.conf
+    fi
+    if [ -d /extraconfigs ]; then
+      echo "Add extra configs to postgres config"
+      cat /extraconfigs/* >>/configs/postgresql.conf
+    fi
+    echo "Initialization done."
+---
+# Source: open-agentix/charts/valkey/templates/scripts.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oax-valkey-scripts
+  labels:
+    helm.sh/chart: valkey-2.3.4
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+data:
+  init.sh: |
+    #!/bin/sh
+    VALKEY_CONFIG=/data/conf/valkey.conf
+    SENTINEL_CONFIG=/data/conf/sentinel.conf
+
+    # Clean up old init logs or print them
+    cleanup_log() {
+      rm -f /data/init.log
+      if [ -f "/data/init.log" ]; then
+        echo "Detected restart of this instance ($HOSTNAME)"
+        echo "## This was the previous log:"
+        cat /data/init.log
+        echo "## End of previous log"
+      fi
+    }
+  
+    # Log a message during initialization phase
+    # $1 - the log message
+    log() {
+      echo "$(date) $1"
+      echo "$(date) $1" >>/data/init.log
+    }
+
+    # Creating valkey base configuration
+    configure_valkey_base() {
+      log "Setting valkey server defaults"
+      echo "port 6379" >>$VALKEY_CONFIG
+      echo "protected-mode no" >>$VALKEY_CONFIG
+      echo "bind 0.0.0.0" >>$VALKEY_CONFIG
+      echo "dir /data" >>$VALKEY_CONFIG
+      THISIP="$(getent hosts $HOSTNAME | awk '{ print $1 }')"
+      echo "replica-announce-ip ${THISIP}" >>$VALKEY_CONFIG
+      log "Finished creating base configuration"
+    }
+
+    configure_valkey_ext() {
+      log "Setting extended valkey configuration"
+      if [ -f /usr/local/etc/valkey/valkey.conf ]; then
+          log "Adding optional valkey configuration"
+          cat /usr/local/etc/valkey/valkey.conf >>$VALKEY_CONFIG
+      fi
+      if [ -d /extravalkeyconfigs ]; then
+        log "Adding extra valkey configs to valkey configuration"
+        cat /extravalkeyconfigs/* >>$VALKEY_CONFIG
+      fi
+    }
+
+    test_master_alive() {
+      TEST="$(timeout 2s valkey-cli -h $MASTER -p 6379 $VALKEYUSER $VALKEYPWD ping)"
+      if [ -z "$TEST" ]; then
+        log "Master is not alive"
+        return 1
+      fi
+      log "Master is alive"
+      return 0
+    }
+
+    test_valid_dns() {
+      KNOWN_HOSTS="$(getent hosts oax-valkey-headless.openagentix.svc.cluster.local | awk '{ print $1 }')"
+      log "## Known hosts for headless service oax-valkey-headless.openagentix.svc.cluster.local:"
+      for AHOSTIP in $KNOWN_HOSTS; do
+        AHOSTNAME=$(getent hosts $AHOSTIP | awk '{print $2}')
+        log "${AHOSTIP} ${AHOSTNAME}"
+      done
+      log "#####"
+      MASTERENTRY="$(getent hosts $MASTER | awk '{ print $1 }')"
+    }
+
+    configure_sentinel() {
+      log "Configuring sentinel server..."
+      if [ -z "$MASTER" ]; then
+        MASTER="$(getent hosts $HOSTNAME | awk '{ print $1 }')"
+        log "No master found - Configuring sentinel for master $HOSTNAME with address $MASTER"
+        echo "sentinel monitor valkeyha $MASTER 6379 2" >>$SENTINEL_CONFIG
+      else
+        log "Valkey master was found - Configuring sentinel for master address $MASTER"
+        echo "sentinel monitor valkeyha $MASTER 6379 2" >>$SENTINEL_CONFIG
+      fi
+      echo "sentinel down-after-milliseconds valkeyha 30000" >>$SENTINEL_CONFIG
+      echo "sentinel failover-timeout valkeyha 180000" >>$SENTINEL_CONFIG
+    }
+
+    configure_sentinel_ext() {
+      log "Setting extended sentinel configuration"
+      if [ -f /usr/local/etc/valkey/sentinel.conf ]; then
+          log "Adding optional sentinel configuration settings"
+          cat /usr/local/etc/valkey/sentinel.conf >>$SENTINEL_CONFIG
+      fi
+      if [ -d /extrasentinelconfigs ]; then
+        log "Adding extra sentinel configs to sentinel configuration"
+        cat /extrasentinelconfigs/* >>$SENTINEL_CONFIG
+      fi
+      log "Configuring sentinel server finished."
+    }
+
+    configure_valkey_cluster() {
+      log "Determining authentication parameters"
+      if [ -f $VALKEY_CONFIG ]; then
+        VALKEYUSER=$(cat $VALKEY_CONFIG | grep masteruser | awk '{ print $2 }')
+        if [ -n "$VALKEYUSER" ]; then
+          VALKEYUSER="--user $VALKEYUSER"
+        fi
+        VALKEYPWD=$(cat $VALKEY_CONFIG | grep masterauth | awk '{ print $2 }')
+        if [ -n "$VALKEYPWD" ]; then
+          VALKEYPWD="--pass $VALKEYPWD"
+        fi
+      fi
+      if [ -f $SENTINEL_CONFIG ]; then
+        SENTINELUSER=$(cat $SENTINEL_CONFIG | grep "sentinel sentinel-user" | awk '{ print $3 }')
+        if [ -n "$SENTINELUSER" ]; then
+          SENTINELUSER="--user $SENTINELUSER"
+        fi
+        SENTINELPWD=$(cat $SENTINEL_CONFIG | grep "sentinel sentinel-pass" | awk '{ print $3 }')
+        if [ -n "$SENTINELPWD" ]; then
+          SENTINELPWD="--pass $SENTINELPWD"
+        fi
+      fi
+      log "Try to resolve cluster service.."
+      SERVICE="$(getent hosts oax-valkey)"
+      if [ -z "$SERVICE" ]; then
+        log "Can't resolve service - Will restart after DNS failure wait"
+        sleep 15
+        log "Restart"
+        exit 1
+      else
+        log "Service resolved: ${SERVICE}"
+      fi
+      log "Try to detect cluster master.."
+      MASTER="$(timeout 2s valkey-cli -h oax-valkey -p 26379 $SENTINELUSER $SENTINELPWD sentinel get-master-addr-by-name valkeyha | head -n 1)"
+      if [ -z "$MASTER" ]; then
+        log "No master found - This instance ($HOSTNAME) will be master now"
+      else
+        log "Valkey master was found with address $MASTER - Checking host dns entry"
+        test_valid_dns
+        if [ -z "$MASTERENTRY" ]; then
+          log "No valid DNS entry found!"
+          if [ -f "/data/failover_restart" ]; then
+            rm /data/failover_restart
+            log "Forcing failover now"
+            valkey-cli -h oax-valkey -p 26379 $SENTINELUSER $SENTINELPWD sentinel failover valkeyha
+          else
+            log "Waiting for failover before restart"
+            sleep 35
+            touch /data/failover_restart
+          fi
+          log "Restart"
+          exit 1
+        else
+          MASTER=$MASTERENTRY
+          log "$MASTER has valid DNS entry"
+          log "Checking if master is alive"
+          if ! test_master_alive; then
+            if [ -f "/data/failover_restart" ]; then
+              rm /data/failover_restart
+              log "Master is still dead! - forcing failover and retry pod initialization"
+              valkey-cli -h oax-valkey -p 26379 $SENTINELUSER $SENTINELPWD sentinel failover valkeyha
+            else
+              log "Dead master at address $MASTER detected! - waiting for failover"
+              sleep 35
+              touch /data/failover_restart
+            fi
+            log "Restart"
+            exit 1
+          else
+            rm -f /data/failover_restart
+            log "Setting this instance ($HOSTNAME) as replicaof $MASTER"
+            echo "replicaof $MASTER 6379" >>$VALKEY_CONFIG
+          fi
+        fi
+      fi
+    }
+
+    log "Creating configuration..."
+    mkdir -p /data/conf
+    cleanup_log
+    rm -f $VALKEY_CONFIG
+    configure_valkey_base
+    configure_valkey_ext
+    log "Done."
+---
+# Source: open-agentix/charts/postgresql/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oax-postgresql
+  labels:
+    helm.sh/chart: postgresql-1.6.8
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "18.6"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: postgres
+      protocol: TCP
+      name: postgres
+  selector:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: oax
+---
+# Source: open-agentix/charts/valkey/templates/service-internal.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oax-valkey-headless
+  labels:
+    helm.sh/chart: valkey-2.3.4
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - port: 6379
+      targetPort: valkey
+      protocol: TCP
+      name: valkey
+  selector:
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: oax
+---
+# Source: open-agentix/charts/valkey/templates/services.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oax-valkey
+  labels:
+    helm.sh/chart: valkey-2.3.4
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  ports:
+    - port: 6379
+      targetPort: valkey
+      protocol: TCP
+      name: valkey
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: oax
+---
+# Source: open-agentix/templates/api/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oax-open-agentix-api
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+# Source: open-agentix/charts/valkey/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oax-valkey
+  labels:
+    helm.sh/chart: valkey-2.3.4
+    app.kubernetes.io/name: valkey
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "9.1.2"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: valkey
+      app.kubernetes.io/instance: oax
+  template:
+    metadata:
+      annotations:
+        checksum/customconfig: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        checksum/scripts: 5ab55a303f7528fcc8d2f678f7b3745bd5821d96a4140fe894e00e2edfda9367
+      labels:
+        app.kubernetes.io/name: valkey
+        app.kubernetes.io/instance: oax
+    spec:
+      serviceAccountName: default
+      securityContext:
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+        supplementalGroups:
+        - 999
+      initContainers:
+        - name: valkey-init
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+            seccompProfile:
+              type: RuntimeDefault
+          image: "docker.io/valkey/valkey:9.1.2"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+          volumeMounts:
+            - mountPath: /data
+              name: valkey-data
+            - name: scripts
+              mountPath: /scripts
+          command: [ "/scripts/init.sh" ]
+      containers:
+        - name: valkey-server
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+            seccompProfile:
+              type: RuntimeDefault
+          image: "docker.io/valkey/valkey:9.1.2"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: valkey
+              containerPort: 6379
+              protocol: TCP
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli ping
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+            successThreshold: 1
+            periodSeconds: 10              
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli ping
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - valkey-cli ping
+            initialDelaySeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            periodSeconds: 10
+          command:
+            - valkey-server
+          args:
+            - /data/conf/valkey.conf
+          envFrom:
+          volumeMounts:
+            - name: valkey-data
+              mountPath: /data
+      volumes:
+        - name: scripts
+          configMap:
+            name: oax-valkey-scripts
+            defaultMode: 0555
+        - name: valkey-data
+          emptyDir: {}
+---
+# Source: open-agentix/templates/api/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oax-open-agentix-api
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: open-agentix-0.1.0
+        app.kubernetes.io/name: open-agentix
+        app.kubernetes.io/instance: oax
+        app.kubernetes.io/component: api
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: open-agentix
+    spec:
+      serviceAccountName: oax-open-agentix-api
+      automountServiceAccountToken: false
+      
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: api
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: api
+      containers:
+        - name: api
+          image: "ghcr.io/open-agentix/open-agentix-api:0.1.0"
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/main.js"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: OAX_HOST
+              value: "0.0.0.0"
+            - name: OAX_PORT
+              value: "8080"
+            - name: NODE_ENV
+              value: production
+            - name: OAX_LOG_LEVEL
+              value: "info"
+            - name: OAX_DB_NAME
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "database" } }
+            - name: OAX_DB_USER
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "user" } }
+            - name: OAX_DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "password" } }
+            - name: OAX_DATABASE_URL
+              value: "postgres://$(OAX_DB_USER):$(OAX_DB_PASSWORD)@oax-postgresql:5432/$(OAX_DB_NAME)?sslmode=disable"
+            - name: OAX_DB_POOL_MAX
+              value: "20"
+            - name: OAX_DB_STATEMENT_TIMEOUT_MS
+              value: "15000"
+            - name: OAX_DB_MIGRATE_ON_START
+              value: "false"
+            - name: OAX_PUBLIC_URL
+              value: "http://oax-open-agentix-api.openagentix.svc:80"
+            - name: OAX_TRUST_PROXY
+              value: "false"
+            - name: OAX_BODY_LIMIT_BYTES
+              value: "1.048576e+06"
+            - name: OAX_CACHE_MAX_ENTRIES
+              value: "10000"
+            - name: OAX_AUTH_CACHE_TTL_SECONDS
+              value: "30"
+            - name: OAX_CACHE_URL
+              value: "redis://oax-valkey:6379"
+            - name: OAX_SESSION_TTL_SECONDS
+              value: "28800"
+            - name: OAX_TOKEN_MAX_TTL_DAYS
+              value: "365"
+            - name: OAX_RATE_LIMIT_MAX
+              value: "600"
+            - name: OAX_RATE_LIMIT_LOGIN_MAX
+              value: "10"
+            - name: OAX_AUDIT_SIGNING_KEY_ID
+              value: "default"
+            - name: OAX_AUDIT_PUBLIC_KEYS
+              value: "{}"
+            - name: OAX_AUDIT_CHECKPOINT_EVERY
+              value: "1000"
+            - name: OAX_RUN_TOKEN_SECRET
+              valueFrom: { secretKeyRef: { name: "oax-run-token", key: "run-token-secret" } }
+            - name: OAX_RUN_TOKEN_TTL_SECONDS
+              value: "14400"
+            - name: OAX_PROVIDERS
+              value: "[{\"kind\":\"simulated\",\"name\":\"simulated\"}]"
+            - name: OAX_PRICE_TABLE
+              value: "[]"
+            - name: OAX_CONTROL_MAX_TOOL_CALLS_PER_MINUTE
+              value: "30"
+            - name: OAX_DEFAULT_MAX_STEPS
+              value: "50"
+            - name: OAX_DEFAULT_TIMEOUT_SECONDS
+              value: "1800"
+            - name: OAX_WEBHOOK_TOLERANCE_SECONDS
+              value: "300"
+            - name: OAX_WEBHOOK_MAX_BYTES
+              value: "1.048576e+06"
+            - name: OAX_SSE_POLL_MS
+              value: "500"
+            - name: OTEL_SERVICE_NAME
+              value: "openagentix-api"
+          
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 3
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+# Source: open-agentix/templates/worker/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oax-open-agentix-worker
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: open-agentix-0.1.0
+        app.kubernetes.io/name: open-agentix
+        app.kubernetes.io/instance: oax
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: open-agentix
+    spec:
+      serviceAccountName: oax-open-agentix-worker
+      # The token is only needed by the (v0.2) Kubernetes Job runner. IRSA works without it.
+      automountServiceAccountToken: false
+      
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
+      
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: worker
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: worker
+      containers:
+        - name: worker
+          image: "ghcr.io/open-agentix/open-agentix-worker:0.1.0"
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/main.js"]
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: OAX_LOG_LEVEL
+              value: "info"
+            - name: OAX_DB_NAME
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "database" } }
+            - name: OAX_DB_USER
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "user" } }
+            - name: OAX_DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "password" } }
+            - name: OAX_DATABASE_URL
+              value: "postgres://$(OAX_DB_USER):$(OAX_DB_PASSWORD)@oax-postgresql:5432/$(OAX_DB_NAME)?sslmode=disable"
+            - name: OAX_DB_POOL_MAX
+              value: "20"
+            - name: OAX_DB_STATEMENT_TIMEOUT_MS
+              value: "15000"
+            - name: OAX_DB_MIGRATE_ON_START
+              value: "false"
+            - name: OAX_PUBLIC_URL
+              value: "http://oax-open-agentix-api.openagentix.svc:80"
+            - name: OAX_TRUST_PROXY
+              value: "false"
+            - name: OAX_BODY_LIMIT_BYTES
+              value: "1.048576e+06"
+            - name: OAX_CACHE_MAX_ENTRIES
+              value: "10000"
+            - name: OAX_AUTH_CACHE_TTL_SECONDS
+              value: "30"
+            - name: OAX_CACHE_URL
+              value: "redis://oax-valkey:6379"
+            - name: OAX_SESSION_TTL_SECONDS
+              value: "28800"
+            - name: OAX_TOKEN_MAX_TTL_DAYS
+              value: "365"
+            - name: OAX_RATE_LIMIT_MAX
+              value: "600"
+            - name: OAX_RATE_LIMIT_LOGIN_MAX
+              value: "10"
+            - name: OAX_AUDIT_SIGNING_KEY_ID
+              value: "default"
+            - name: OAX_AUDIT_PUBLIC_KEYS
+              value: "{}"
+            - name: OAX_AUDIT_CHECKPOINT_EVERY
+              value: "1000"
+            - name: OAX_RUN_TOKEN_SECRET
+              valueFrom: { secretKeyRef: { name: "oax-run-token", key: "run-token-secret" } }
+            - name: OAX_RUN_TOKEN_TTL_SECONDS
+              value: "14400"
+            - name: OAX_PROVIDERS
+              value: "[{\"kind\":\"simulated\",\"name\":\"simulated\"}]"
+            - name: OAX_PRICE_TABLE
+              value: "[]"
+            - name: OAX_CONTROL_MAX_TOOL_CALLS_PER_MINUTE
+              value: "30"
+            - name: OAX_DEFAULT_MAX_STEPS
+              value: "50"
+            - name: OAX_DEFAULT_TIMEOUT_SECONDS
+              value: "1800"
+            - name: OAX_WEBHOOK_TOLERANCE_SECONDS
+              value: "300"
+            - name: OAX_WEBHOOK_MAX_BYTES
+              value: "1.048576e+06"
+            - name: OAX_SSE_POLL_MS
+              value: "500"
+            - name: OAX_WORKER_CONCURRENCY
+              value: "4"
+            - name: OAX_WORKER_POLL_MS
+              value: "500"
+            - name: OAX_WORKER_LEASE_SECONDS
+              value: "60"
+            - name: OAX_WORKER_MAX_ATTEMPTS
+              value: "3"
+            - name: OAX_APPROVAL_POLL_MS
+              value: "1000"
+            - name: OAX_DEMO_MCP
+              value: "false"
+            - name: OTEL_SERVICE_NAME
+              value: "openagentix-worker"
+          
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+# Source: open-agentix/charts/postgresql/templates/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: oax-postgresql
+  labels:
+    helm.sh/chart: postgresql-1.6.8
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "18.6"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  replicas: 1
+  serviceName: oax-postgresql
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/instance: oax
+  template:
+    metadata:
+      annotations:
+        checksum/customconfig: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        checksum/secureconfig: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        checksum/customscripts: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
+        checksum/scripts: e273dc40fe2a72c74fff9552b433ed5ccb0c8ac3a5c8cf8f9aafd1dba9ac551c
+      labels:
+        app.kubernetes.io/name: postgresql
+        app.kubernetes.io/instance: oax
+    spec:
+      serviceAccountName: default
+      securityContext:
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+        supplementalGroups:
+        - 999
+      initContainers:
+        - name: postgresql-init
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+            seccompProfile:
+              type: RuntimeDefault
+          image: "docker.io/postgres:16.10-alpine"
+          imagePullPolicy: IfNotPresent
+          volumeMounts:
+            - mountPath: /initscripts
+              name: initscripts
+            - mountPath: /scripts
+              name: scripts
+            - mountPath: /configs
+              name: configs
+          command: [ "/initscripts/init.sh" ]
+      containers:
+        - name: postgresql
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: true
+            runAsGroup: 999
+            runAsNonRoot: true
+            runAsUser: 999
+            seccompProfile:
+              type: RuntimeDefault
+          image: "docker.io/postgres:16.10-alpine"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: postgres
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: oax-pg
+                  key: superuser-password
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: oax-pg
+                  key: database
+            - name: USERDB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: oax-pg
+                  key: user
+            - name: USERDB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: oax-pg
+                  key: password
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pg"
+          startupProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h localhost -U ${POSTGRES_USER:-postgres}
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30
+            successThreshold: 1
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h localhost -U ${POSTGRES_USER:-postgres}
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -h localhost -U ${POSTGRES_USER:-postgres}
+            initialDelaySeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+            successThreshold: 1
+            periodSeconds: 10
+          volumeMounts:
+            - mountPath: /var/run
+              name: run
+            - mountPath: /tmp
+              name: tmp
+            - mountPath: /var/lib/postgresql/data
+              name: postgres-data
+            - mountPath: /docker-entrypoint-initdb.d
+              name: scripts
+            - mountPath: /etc/postgresql
+              name: configs
+      volumes:
+        - name: run
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: scripts
+          emptyDir: {}
+        - name: configs
+          emptyDir: {}
+        - name: initscripts
+          configMap:
+            name: oax-postgresql-scripts
+            defaultMode: 0555
+  volumeClaimTemplates:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: postgres-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 8Gi
+---
+# Source: open-agentix/templates/migrations/job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oax-open-agentix-migrations
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.1.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: migrations
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: open-agentix-0.1.0
+        app.kubernetes.io/name: open-agentix
+        app.kubernetes.io/instance: oax
+        app.kubernetes.io/component: migrations
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: open-agentix
+    spec:
+      restartPolicy: Never
+      # Hooks run before chart-managed ServiceAccounts exist; the Job needs no API access.
+      automountServiceAccountToken: false
+      
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrations
+          image: "ghcr.io/open-agentix/open-agentix-api:0.1.0"
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/migrate-cli.js"]
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: OAX_LOG_LEVEL
+              value: "info"
+            - name: OAX_DB_NAME
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "database" } }
+            - name: OAX_DB_USER
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "user" } }
+            - name: OAX_DB_PASSWORD
+              valueFrom: { secretKeyRef: { name: "oax-pg", key: "password" } }
+            - name: OAX_DATABASE_URL
+              value: "postgres://$(OAX_DB_USER):$(OAX_DB_PASSWORD)@oax-postgresql:5432/$(OAX_DB_NAME)?sslmode=disable"
+            - name: OAX_RUN_TOKEN_SECRET
+              valueFrom: { secretKeyRef: { name: "oax-run-token", key: "run-token-secret" } }
+            - name: OAX_RUN_TOKEN_TTL_SECONDS
+              value: "14400"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
