@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/open-agentix/open-agentix-helm/security/advisories/new
+    about: Please report security issues privately.
+  - name: Platform issues
+    url: https://github.com/open-agentix/open-agentix/issues
+    about: Problems of the API, worker or UI belong to the main repository.
