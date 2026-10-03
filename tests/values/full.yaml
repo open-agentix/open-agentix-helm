@@ -1,0 +1,98 @@
+# Render case: every optional feature switched on (golden files + kubeconform).
+image:
+  pullSecrets: [regcred]
+  api: { digest: "sha256:1111111111111111111111111111111111111111111111111111111111111111" }
+  worker: { digest: "sha256:2222222222222222222222222222222222222222222222222222222222222222" }
+  ui: { tag: "0.1.0" }
+commonLabels: { team: platform }
+commonAnnotations: { owner: platform-team }
+config:
+  corsOrigins: ["https://ui.example.com"]
+  providers:
+    - { kind: simulated, name: simulated }
+    - { kind: openai, name: openai, baseUrl: "https://api.openai.com/v1", apiKeySecret: openai-key }
+  priceTable:
+    - { provider: openai, model: "gpt-*", inputPerMTok: 2.5, outputPerMTok: 10 }
+  extraEnv:
+    - { name: OAX_EXTRA, value: "1" }
+runToken: { existingSecret: oax-run-token }
+externalDatabase:
+  existingSecret: oax-db
+  urlKey: url
+  migrations: { existingSecret: oax-db-migrator, urlKey: url }
+cache: { enabled: true, url: "redis://valkey.cache.svc:6379" }
+auth:
+  bootstrapAdmin: { enabled: true, email: admin@example.com, existingSecret: oax-admin }
+  oidc:
+    enabled: true
+    issuer: https://keycloak.example.com/realms/oax
+    clientId: openagentix
+    existingSecret: oax-oidc
+    roleMapping: { admins: admin, auditors: [auditor, viewer] }
+  ldap:
+    enabled: true
+    url: ldaps://ldap.example.com:636
+    bindDn: cn=svc,dc=example,dc=com
+    userBaseDn: ou=people,dc=example,dc=com
+    existingSecret: oax-ldap
+audit:
+  signingKey: { existingSecret: oax-audit, keyId: k1 }
+  publicKeys: { k0: "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA\n-----END PUBLIC KEY-----" }
+secrets:
+  files: [oax-provider-keys]
+  env: [oax-secret-env]
+aws:
+  region: eu-central-1
+  bedrock: { enabled: true, vpcEndpointUrl: "https://vpce-1.bedrock-runtime.eu-central-1.vpce.amazonaws.com", proxyUrl: "http://proxy:3128" }
+proxy: { httpsProxy: "http://proxy:3128", httpProxy: "http://proxy:3128", noProxy: "10.0.0.0/8" }
+observability:
+  otel: { endpoint: "http://otel-collector:4318" }
+  metrics: { existingSecret: oax-metrics }
+  serviceMonitor: { enabled: true, labels: { release: prom } }
+  prometheusRule: { enabled: true, extraRules: [{ alert: Custom, expr: vector(0) }] }
+serviceAccount:
+  worker: { annotations: { eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/oax" } }
+api:
+  autoscaling: { enabled: true, targetMemoryUtilizationPercentage: 80 }
+  pdb: { maxUnavailable: 1 }
+  podAnnotations: { a: b }
+  podLabels: { c: d }
+  nodeSelector: { kubernetes.io/os: linux }
+  tolerations: [{ key: dedicated, operator: Equal, value: agents, effect: NoSchedule }]
+  priorityClassName: high
+  extraEnv: [{ name: API_ONLY, value: "x" }]
+  extraVolumes: [{ name: extra, emptyDir: {} }]
+  extraVolumeMounts: [{ name: extra, mountPath: /extra }]
+worker:
+  demoMcp: true
+  autoscaling: { enabled: true, minReplicas: 2 }
+  livenessProbe: { exec: { command: ["pgrep", "-f", "node dist/main.js"] }, periodSeconds: 30 }
+ui:
+  enabled: true
+  topologySpreadConstraints:
+    - { maxSkew: 1, topologyKey: kubernetes.io/hostname, whenUnsatisfiable: DoNotSchedule, labelSelector: { matchLabels: { app.kubernetes.io/component: ui } } }
+ingress:
+  enabled: true
+  className: nginx
+  host: agents.example.com
+  annotations: { nginx.ingress.kubernetes.io/proxy-buffering: "off" }
+  tls: { enabled: true, secretName: agents-tls }
+networkPolicy:
+  ingress:
+    metricsFrom: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } } }]
+  egress:
+    database: [{ ipBlock: { cidr: 10.0.0.0/24 } }]
+    otel: [{ to: [{ podSelector: { matchLabels: { app: otel } } }], ports: [{ protocol: TCP, port: 4318 }] }]
+    auth: [{ to: [{ ipBlock: { cidr: 0.0.0.0/0, except: [10.0.0.0/8] } }], ports: [{ protocol: TCP, port: 443 }, { protocol: TCP, port: 636 }] }]
+    providers: [{ to: [{ ipBlock: { cidr: 10.1.0.0/24 } }], ports: [{ protocol: TCP, port: 443 }] }]
+    mcp: [{ to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: mcp } } }] }]
+    eventSources: [{ to: [{ ipBlock: { cidr: 10.2.0.0/24 } }], ports: [{ protocol: TCP, port: 9093 }] }]
+    kubernetesApi: [{ to: [{ ipBlock: { cidr: 10.96.0.1/32 } }], ports: [{ protocol: TCP, port: 443 }] }]
+runners:
+  kubernetesJob:
+    enabled: true
+    createNamespace: true
+    jobServiceAccount: { annotations: { eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/oax-run" } }
+  toolboxes:
+    allowlist:
+      - { name: trivy, image: ghcr.io/open-agentix/toolbox-trivy, digest: "sha256:3333333333333333333333333333333333333333333333333333333333333333", egress: [ghcr.io] }

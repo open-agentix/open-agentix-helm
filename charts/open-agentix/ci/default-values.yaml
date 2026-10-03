@@ -1,0 +1,7 @@
+# chart-testing: smallest valid configuration (external database).
+runToken:
+  existingSecret: oax-run-token
+externalDatabase:
+  host: postgres.oax-ci.svc.cluster.local
+  sslmode: disable
+  existingSecret: oax-db
