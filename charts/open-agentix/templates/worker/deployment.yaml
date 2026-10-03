@@ -1,0 +1,62 @@
+{{- include "open-agentix.validate" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "worker") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "worker") | nindent 4 }}
+  {{- include "open-agentix.annotations" . | nindent 2 }}
+spec:
+  {{- if not .Values.worker.autoscaling.enabled }}
+  replicas: {{ .Values.worker.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list . "worker") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "open-agentix.labels" (list . "worker") | nindent 8 }}
+        {{- with .Values.worker.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.worker.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "open-agentix.serviceAccountName" (list . "worker") }}
+      # The token is only needed by the (v0.2) Kubernetes Job runner. IRSA works without it.
+      automountServiceAccountToken: {{ .Values.runners.kubernetesJob.enabled }}
+      {{- include "open-agentix.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.worker.terminationGracePeriodSeconds }}
+      {{- include "open-agentix.scheduling" (list . "worker") | nindent 6 }}
+      containers:
+        - name: worker
+          image: {{ include "open-agentix.image" (list . "worker") | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "dist/main.js"]
+          env:
+            {{- include "open-agentix.env.common" (list . "worker") | nindent 12 }}
+          {{- include "open-agentix.envFrom" . | nindent 10 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- with .Values.worker.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "open-agentix.volumeMounts" (list . "worker") | nindent 12 }}
+      volumes:
+        {{- include "open-agentix.volumes" (list . "worker") | nindent 8 }}

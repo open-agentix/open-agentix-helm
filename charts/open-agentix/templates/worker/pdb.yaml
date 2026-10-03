@@ -1,0 +1,19 @@
+{{- $replicas := ternary .Values.worker.autoscaling.minReplicas .Values.worker.replicaCount .Values.worker.autoscaling.enabled -}}
+{{- if and .Values.worker.pdb.enabled (gt (int $replicas) 1) }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "worker") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "worker") | nindent 4 }}
+spec:
+  {{- if kindIs "invalid" .Values.worker.pdb.maxUnavailable }}
+  minAvailable: {{ .Values.worker.pdb.minAvailable }}
+  {{- else }}
+  maxUnavailable: {{ .Values.worker.pdb.maxUnavailable }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list . "worker") | nindent 6 }}
+{{- end }}

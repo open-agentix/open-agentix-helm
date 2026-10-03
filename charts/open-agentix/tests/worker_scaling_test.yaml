@@ -1,0 +1,33 @@
+suite: worker autoscaling and disruption budget
+templates:
+  - worker/hpa.yaml
+  - worker/pdb.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+tests:
+  - it: renders neither HPA nor PDB for the single default worker
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: renders an HPA when enabled
+    template: worker/hpa.yaml
+    set:
+      worker.autoscaling.enabled: true
+    asserts:
+      - isKind: { of: HorizontalPodAutoscaler }
+      - equal: { path: spec.scaleTargetRef.name, value: rel-open-agentix-worker }
+      - equal: { path: spec.maxReplicas, value: 5 }
+      - equal: { path: 'spec.metrics[0].resource.target.averageUtilization', value: 75 }
+      - lengthEqual: { path: spec.metrics, count: 1 }
+
+  - it: renders a PDB once more than one worker runs
+    template: worker/pdb.yaml
+    set:
+      worker.autoscaling.enabled: true
+      worker.autoscaling.minReplicas: 2
+    asserts:
+      - isKind: { of: PodDisruptionBudget }
+      - equal: { path: 'spec.selector.matchLabels["app.kubernetes.io/component"]', value: worker }
