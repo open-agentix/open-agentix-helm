@@ -9,6 +9,9 @@ release:
 chart:
   version: 0.1.0
   appVersion: 0.1.0
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
 tests:
   - it: renders a hardened Deployment with the appVersion image
     asserts:

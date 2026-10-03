@@ -9,6 +9,9 @@ release:
 chart:
   version: 0.1.0
   appVersion: 0.1.0
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
 tests:
   - it: runs migrate-cli as a pre-install/pre-upgrade hook with the API image
     asserts:

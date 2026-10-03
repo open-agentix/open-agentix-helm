@@ -7,6 +7,9 @@ values:
 release:
   name: rel
   namespace: oax
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
 tests:
   - it: renders neither HPA nor PDB for the single default worker
     asserts:

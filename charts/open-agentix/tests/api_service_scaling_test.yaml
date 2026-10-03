@@ -8,6 +8,9 @@ values:
 release:
   name: rel
   namespace: oax
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
 tests:
   - it: exposes the API on a ClusterIP Service
     template: api/service.yaml

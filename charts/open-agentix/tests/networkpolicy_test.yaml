@@ -10,6 +10,9 @@ values:
 release:
   name: rel
   namespace: oax
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
 tests:
   - it: denies all ingress and egress for every pod of the release
     template: networkpolicy/default-deny.yaml
