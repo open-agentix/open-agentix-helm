@@ -38,6 +38,8 @@ jobs:
         env:
           NODE_PATH: ${{ runner.temp }}/node/node_modules
         run: node scripts/validate-values.cjs "$CHART" examples/*.yaml "$CHART"/ci/*.yaml tests/values/*.yaml
+      - name: chart README values table is up to date
+        run: python3 scripts/values-table.py --check "$CHART/README.md"
       - name: unit test template coverage (>= 80 %)
         run: |
           python3 scripts/coverage.py "$CHART" --min 80 --markdown "$RUNNER_TEMP/coverage.md"
