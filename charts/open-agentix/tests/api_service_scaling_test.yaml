@@ -1,0 +1,60 @@
+suite: api service, autoscaling and disruption budget
+templates:
+  - api/service.yaml
+  - api/hpa.yaml
+  - api/pdb.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+tests:
+  - it: exposes the API on a ClusterIP Service
+    template: api/service.yaml
+    asserts:
+      - isKind: { of: Service }
+      - equal: { path: spec.type, value: ClusterIP }
+      - equal: { path: 'spec.ports[0].port', value: 80 }
+      - equal: { path: 'spec.ports[0].targetPort', value: http }
+      - equal: { path: 'spec.selector["app.kubernetes.io/component"]', value: api }
+
+  - it: renders no HPA by default
+    template: api/hpa.yaml
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: renders an HPA with CPU and optional memory targets
+    template: api/hpa.yaml
+    set:
+      api.autoscaling.enabled: true
+      api.autoscaling.maxReplicas: 7
+      api.autoscaling.targetMemoryUtilizationPercentage: 80
+    asserts:
+      - isKind: { of: HorizontalPodAutoscaler }
+      - equal: { path: spec.scaleTargetRef.name, value: rel-open-agentix-api }
+      - equal: { path: spec.minReplicas, value: 2 }
+      - equal: { path: spec.maxReplicas, value: 7 }
+      - equal: { path: 'spec.metrics[0].resource.target.averageUtilization', value: 70 }
+      - equal: { path: 'spec.metrics[1].resource.name', value: memory }
+
+  - it: renders a PDB with minAvailable for two replicas
+    template: api/pdb.yaml
+    asserts:
+      - isKind: { of: PodDisruptionBudget }
+      - equal: { path: spec.minAvailable, value: 1 }
+      - notExists: { path: spec.maxUnavailable }
+
+  - it: prefers maxUnavailable when set
+    template: api/pdb.yaml
+    set:
+      api.pdb.maxUnavailable: 1
+    asserts:
+      - equal: { path: spec.maxUnavailable, value: 1 }
+      - notExists: { path: spec.minAvailable }
+
+  - it: skips the PDB for a single replica
+    template: api/pdb.yaml
+    set:
+      api.replicaCount: 1
+    asserts:
+      - hasDocuments: { count: 0 }

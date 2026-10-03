@@ -1,0 +1,6 @@
+# Smallest valid configuration used by most unit tests.
+runToken:
+  existingSecret: oax-run-token
+externalDatabase:
+  host: db.example.com
+  existingSecret: oax-db
