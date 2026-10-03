@@ -1,0 +1,100 @@
+suite: worker deployment
+templates:
+  - worker/deployment.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+chart:
+  version: 0.1.0
+  appVersion: 0.1.0
+tests:
+  - it: renders the worker with queue settings and without migrations
+    asserts:
+      - isKind: { of: Deployment }
+      - equal: { path: metadata.name, value: rel-open-agentix-worker }
+      - equal: { path: spec.replicas, value: 1 }
+      - equal:
+          path: 'spec.template.spec.containers[0].image'
+          value: ghcr.io/open-agentix/open-agentix-worker:0.1.0
+      - notExists: { path: 'spec.template.spec.containers[0].ports' }
+      - notExists: { path: 'spec.template.spec.containers[0].livenessProbe' }
+      - equal: { path: spec.template.spec.automountServiceAccountToken, value: false }
+      - equal: { path: spec.template.spec.serviceAccountName, value: rel-open-agentix-worker }
+      - equal: { path: spec.template.spec.terminationGracePeriodSeconds, value: 60 }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_DB_MIGRATE_ON_START, value: "false" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_WORKER_CONCURRENCY, value: "4" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_DEMO_MCP, value: "false" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OTEL_SERVICE_NAME, value: openagentix-worker }
+      - notContains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_PORT, value: "8080" }
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem', value: true }
+
+  - it: keeps migrate-on-start off even when the API migrates on start
+    set:
+      api.migrateOnStart: true
+      migrations.enabled: false
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_DB_MIGRATE_ON_START, value: "false" }
+
+  - it: applies worker tuning, demo MCP and a liveness probe
+    set:
+      worker.concurrency: 16
+      worker.leaseSeconds: 120
+      worker.demoMcp: true
+      worker.extraEnv: [{ name: WORKER_X, value: "1" }]
+      worker.livenessProbe:
+        exec: { command: ["pgrep", "-f", "node dist/main.js"] }
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_WORKER_CONCURRENCY, value: "16" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_WORKER_LEASE_SECONDS, value: "120" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_DEMO_MCP, value: "true" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: WORKER_X, value: "1" }
+      - equal:
+          path: 'spec.template.spec.containers[0].livenessProbe.exec.command'
+          value: ["pgrep", "-f", "node dist/main.js"]
+
+  - it: mounts the ServiceAccount token only for the Kubernetes Job runner
+    set:
+      runners.kubernetesJob.enabled: true
+    asserts:
+      - equal: { path: spec.template.spec.automountServiceAccountToken, value: true }
+
+  - it: omits replicas under autoscaling
+    set:
+      worker.autoscaling.enabled: true
+    asserts:
+      - notExists: { path: spec.replicas }
+
+  - it: uses an existing ServiceAccount when creation is disabled
+    set:
+      serviceAccount.worker.create: false
+      serviceAccount.worker.name: bedrock-invoker
+    asserts:
+      - equal: { path: spec.template.spec.serviceAccountName, value: bedrock-invoker }
+
+  - it: validates values like the API
+    set:
+      runToken.existingSecret: ""
+    asserts:
+      - failedTemplate: { errorPattern: "runToken.existingSecret is required" }
