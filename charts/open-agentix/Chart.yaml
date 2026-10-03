@@ -1,0 +1,30 @@
+apiVersion: v2
+name: open-agentix
+description: >-
+  open-agentix - the agentic platform. Control node (API, UI), worker, database migrations and
+  hardened defaults (PodSecurity restricted, default-deny NetworkPolicies) for Kubernetes and EKS.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.27.0-0"
+home: https://openagentix.si
+sources:
+  - https://github.com/open-agentix/open-agentix
+  - https://github.com/open-agentix/open-agentix-helm
+license: Apache-2.0
+keywords:
+  - agents
+  - mcp
+  - llm
+  - audit
+  - policy
+  - bedrock
+maintainers:
+  - name: agentix-zero
+    url: https://github.com/open-agentix
+  - name: agentix-zero
+    url: https://github.com/agentix-zero
+annotations:
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/prerelease: "true"
+  artifacthub.io/containsSecurityUpdates: "false"

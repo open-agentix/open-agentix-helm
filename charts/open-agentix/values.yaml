@@ -1,0 +1,682 @@
+# Default values for open-agentix.
+# Every key is documented with a `# --` comment (helm-docs format) and validated by
+# values.schema.json (strict: unknown keys are rejected).
+#
+# Secrets are NEVER set in this file. Every secret value is read from an existing Kubernetes
+# Secret that you create before installing (see README "Prepare secrets").
+
+# -- Override the chart name used in resource names.
+nameOverride: ""
+# -- Override the full resource name prefix.
+fullnameOverride: ""
+# -- Labels added to every resource.
+commonLabels: {}
+# -- Annotations added to every resource.
+commonAnnotations: {}
+# -- Global values shared with subcharts (Helm convention).
+global: {}
+# -- Render soft topology spread (zone + node) for components whose
+# `topologySpreadConstraints` list is empty.
+defaultTopologySpread: true
+
+image:
+  # -- Registry of the platform images.
+  registry: ghcr.io
+  # -- Image pull policy for all platform images.
+  pullPolicy: IfNotPresent
+  # -- Names of existing image pull secrets (`kubernetes.io/dockerconfigjson`).
+  pullSecrets: []
+  api:
+    # -- Repository of the control node image (also runs the migrations Job).
+    repository: open-agentix/open-agentix-api
+    # -- Tag; defaults to the chart appVersion.
+    tag: ""
+    # -- Digest (`sha256:...`). When set it is appended to the reference and pins the image.
+    digest: ""
+  worker:
+    # -- Repository of the worker image.
+    repository: open-agentix/open-agentix-worker
+    # -- Tag; defaults to the chart appVersion.
+    tag: ""
+    # -- Digest (`sha256:...`).
+    digest: ""
+  ui:
+    # -- Repository of the static UI image (nginx-unprivileged based, listens on 8080).
+    repository: open-agentix/open-agentix-ui
+    # -- Tag; defaults to the chart appVersion.
+    tag: ""
+    # -- Digest (`sha256:...`).
+    digest: ""
+
+# Non-secret application settings (rendered as environment variables, see
+# platform docs/configuration.md).
+config:
+  # -- `OAX_PUBLIC_URL`. Empty = derived from `ingress.host` (https when `ingress.tls.enabled`).
+  publicUrl: ""
+  # -- `OAX_UI_URL`. Empty = same as the public URL when `ui.enabled`.
+  uiUrl: ""
+  # -- `OAX_CORS_ORIGINS`. Only needed when the UI is served from a different origin.
+  corsOrigins: []
+  # -- `OAX_TRUST_PROXY`. `null` = true when `ingress.enabled`, else false.
+  trustProxy: null
+  # -- `OAX_LOG_LEVEL` (fatal, error, warn, info, debug, trace, silent).
+  logLevel: info
+  # -- `OAX_BODY_LIMIT_BYTES`.
+  bodyLimitBytes: 1048576
+  database:
+    # -- `OAX_DB_POOL_MAX` per process.
+    poolMax: 20
+    # -- `OAX_DB_STATEMENT_TIMEOUT_MS`.
+    statementTimeoutMs: 15000
+  cache:
+    # -- `OAX_CACHE_MAX_ENTRIES` of the in-memory LRU.
+    maxEntries: 10000
+    # -- `OAX_AUTH_CACHE_TTL_SECONDS`.
+    authTtlSeconds: 30
+  session:
+    # -- `OAX_SESSION_TTL_SECONDS`.
+    ttlSeconds: 28800
+    # -- `OAX_TOKEN_MAX_TTL_DAYS`.
+    tokenMaxTtlDays: 365
+  rateLimit:
+    # -- `OAX_RATE_LIMIT_MAX` requests per minute per token/IP.
+    max: 600
+    # -- `OAX_RATE_LIMIT_LOGIN_MAX` login attempts per minute per IP.
+    loginMax: 10
+  webhook:
+    # -- `OAX_WEBHOOK_TOLERANCE_SECONDS`.
+    toleranceSeconds: 300
+    # -- `OAX_WEBHOOK_MAX_BYTES`.
+    maxBytes: 1048576
+  # -- `OAX_SSE_POLL_MS`.
+  ssePollMs: 500
+  control:
+    # -- `OAX_CONTROL_MAX_TOOL_CALLS_PER_MINUTE`.
+    maxToolCallsPerMinute: 30
+    # -- `OAX_DEFAULT_MAX_STEPS`.
+    defaultMaxSteps: 50
+    # -- `OAX_DEFAULT_TIMEOUT_SECONDS`.
+    defaultTimeoutSeconds: 1800
+  # -- `OAX_PROVIDERS` as a list (rendered as JSON). API keys are secret references
+  # (`apiKeySecret`), resolved from `secrets.*`. The Bedrock entry from `aws.bedrock` is appended.
+  providers:
+    - kind: simulated
+      name: simulated
+  # -- `OAX_PRICE_TABLE` as a list (rendered as JSON).
+  priceTable: []
+  # -- Extra environment variables for api, worker and migrations (list of EnvVar).
+  extraEnv: []
+
+# Database. Default: external PostgreSQL 16+.
+externalDatabase:
+  # -- Host name of the external PostgreSQL.
+  host: ""
+  # -- Port.
+  port: 5432
+  # -- Database name.
+  database: openagentix
+  # -- Application user (least-privilege role `openagentix_app`, see backup/security docs).
+  user: openagentix_app
+  # -- `sslmode` appended to the URL (`disable`, `require`, `verify-ca`, `verify-full`).
+  sslmode: require
+  # -- Existing Secret with the password (or the full URL, see `urlKey`). Required.
+  existingSecret: ""
+  # -- Key of the password in `existingSecret`. Must be URL-safe (no `@`, `:`, `/`, `%`).
+  passwordKey: password
+  # -- Key with a complete `postgres://` URL. When set, host/port/user/password are ignored.
+  urlKey: ""
+  migrations:
+    # -- Optional separate owner role for the migrations Job (`openagentix_migrator`). Empty = app user.
+    user: ""
+    # -- Existing Secret for the migration role. Empty = `externalDatabase.existingSecret`.
+    existingSecret: ""
+    # -- Key of the migration password.
+    passwordKey: password
+    # -- Key with a complete URL for the migration role.
+    urlKey: ""
+
+# Bundled PostgreSQL (groundhog2k/postgres, official postgres image). For tests and homelabs.
+postgresql:
+  # -- Deploy the bundled PostgreSQL instead of using `externalDatabase`.
+  enabled: false
+  image:
+    # -- PostgreSQL image tag (major 16 like the platform's reference setup).
+    tag: "16.10-alpine"
+  userDatabase:
+    # -- Existing Secret with keys `database`, `user`, `password` (create it before install).
+    existingSecret: ""
+    name:
+      # -- Key of the database name.
+      secretKey: database
+    user:
+      # -- Key of the user name.
+      secretKey: user
+    password:
+      # -- Key of the password (URL-safe).
+      secretKey: password
+  settings:
+    # -- Existing Secret with the superuser password (key `superuser-password`).
+    existingSecret: ""
+    superuserPassword:
+      # -- Key of the superuser password.
+      secretKey: superuser-password
+  storage:
+    # -- Size of the data volume.
+    requestedSize: 8Gi
+    # -- StorageClass (empty = cluster default).
+    className: ""
+  # -- Adds seccomp RuntimeDefault so the pod passes PodSecurity `restricted`.
+  podSecurityContext:
+    seccompProfile: { type: RuntimeDefault }
+  # -- Container seccomp profile (merged with the subchart's restricted defaults).
+  securityContext:
+    seccompProfile: { type: RuntimeDefault }
+
+# Cache: external Valkey/Redis (default off = in-memory LRU per process).
+cache:
+  # -- Use an external Valkey/Redis (`OAX_CACHE_URL`).
+  enabled: false
+  # -- Non-secret URL (`redis://host:6379`) when the cache has no password.
+  url: ""
+  # -- Existing Secret holding the URL (use when it contains a password).
+  existingSecret: ""
+  # -- Key of the URL in `existingSecret`.
+  urlKey: url
+
+# Bundled Valkey (groundhog2k/valkey). Sets `OAX_CACHE_URL` automatically when enabled.
+valkey:
+  # -- Deploy the bundled Valkey.
+  enabled: false
+  # -- Adds seccomp RuntimeDefault so the pod passes PodSecurity `restricted`.
+  podSecurityContext:
+    seccompProfile: { type: RuntimeDefault }
+  # -- Container seccomp profile.
+  securityContext:
+    seccompProfile: { type: RuntimeDefault }
+
+auth:
+  bootstrapAdmin:
+    # -- Create a local admin when the user table is empty.
+    enabled: false
+    # -- `OAX_BOOTSTRAP_ADMIN_EMAIL`.
+    email: ""
+    # -- Existing Secret with the password (>= 12 characters).
+    existingSecret: ""
+    # -- Key of the password.
+    passwordKey: password
+  oidc:
+    # -- Enable OIDC login.
+    enabled: false
+    # -- `OAX_OIDC_ISSUER`.
+    issuer: ""
+    # -- `OAX_OIDC_CLIENT_ID`.
+    clientId: ""
+    # -- `OAX_OIDC_REDIRECT_URI`. Empty = `<publicUrl>/v1/auth/oidc/callback`.
+    redirectUri: ""
+    # -- `OAX_OIDC_SCOPES`.
+    scopes: openid profile email
+    # -- `OAX_OIDC_GROUPS_CLAIM`.
+    groupsClaim: groups
+    # -- `OAX_OIDC_ROLE_MAPPING`: group -> `role`, `role@team-slug` or a list.
+    roleMapping: {}
+    # -- Existing Secret with the client secret (empty = public client with PKCE).
+    existingSecret: ""
+    # -- Key of the client secret.
+    clientSecretKey: client-secret
+  ldap:
+    # -- Enable LDAP/AD bind login.
+    enabled: false
+    # -- `OAX_LDAP_URL` (`ldaps://...:636`).
+    url: ""
+    # -- `OAX_LDAP_BIND_DN` of the search service account.
+    bindDn: ""
+    # -- `OAX_LDAP_USER_BASE_DN`.
+    userBaseDn: ""
+    # -- `OAX_LDAP_USER_FILTER`. AD: `(sAMAccountName={username})`.
+    userFilter: "(uid={username})"
+    # -- `OAX_LDAP_GROUP_ATTRIBUTE`.
+    groupAttribute: memberOf
+    # -- `OAX_LDAP_ROLE_MAPPING`: group DN -> role.
+    roleMapping: {}
+    # -- `OAX_LDAP_TLS_REJECT_UNAUTHORIZED`.
+    tlsRejectUnauthorized: true
+    # -- Existing Secret with the bind password.
+    existingSecret: ""
+    # -- Key of the bind password.
+    bindPasswordKey: bind-password
+
+runToken:
+  # -- Existing Secret with the run-token HMAC key (>= 32 characters). Required.
+  existingSecret: ""
+  # -- Key in the Secret.
+  key: run-token-secret
+  # -- `OAX_RUN_TOKEN_TTL_SECONDS`.
+  ttlSeconds: 14400
+
+audit:
+  signingKey:
+    # -- Existing Secret with the Ed25519 private key (PKCS#8 PEM) for audit checkpoints.
+    # Empty = checkpoints are not signed (not recommended for production).
+    existingSecret: ""
+    # -- Key in the Secret.
+    key: ed25519.pem
+    # -- `OAX_AUDIT_SIGNING_KEY_ID`.
+    keyId: default
+  # -- `OAX_AUDIT_PUBLIC_KEYS`: `{keyId: publicKeyPem}` of rotated keys (public, not secret).
+  publicKeys: {}
+  # -- `OAX_AUDIT_CHECKPOINT_EVERY`.
+  checkpointEvery: 1000
+
+# Secret references used by providers, MCP connections and event sources (`apiKeySecret`,
+# `secretRefs`). The platform resolves `<name>` from `OAX_SECRET_<NAME>` or from a file `<name>`
+# in `OAX_SECRETS_DIR`.
+secrets:
+  # -- Existing Secrets projected as files into `OAX_SECRETS_DIR` (key = reference name).
+  files: []
+  # -- Existing Secrets loaded with `envFrom` (keys must be `OAX_SECRET_<NAME>`).
+  env: []
+  # -- Mount path of `secrets.files`.
+  mountPath: /var/run/openagentix/secrets
+
+aws:
+  # -- `AWS_REGION` for the AWS SDK (Bedrock). Empty = not set.
+  region: ""
+  bedrock:
+    # -- Append a Bedrock provider entry to `OAX_PROVIDERS`.
+    enabled: false
+    # -- Provider name referenced by agents.
+    name: bedrock
+    # -- Bedrock region (defaults to `aws.region`).
+    region: ""
+    # -- VPC interface endpoint URL (`https://vpce-...bedrock-runtime.<region>.vpce.amazonaws.com`).
+    vpcEndpointUrl: ""
+    # -- Per-provider HTTPS proxy URL (`http://egress-proxy:3128`).
+    proxyUrl: ""
+    # -- Highest data classification sent to Bedrock.
+    clearance: confidential
+
+proxy:
+  # -- `HTTPS_PROXY` for SDKs that honour it (AWS SDK). Per-provider `proxyUrl` is preferred.
+  httpsProxy: ""
+  # -- `HTTP_PROXY`.
+  httpProxy: ""
+  # -- `NO_PROXY`. The cluster-internal defaults are always prepended.
+  noProxy: ""
+
+observability:
+  otel:
+    # -- `OTEL_EXPORTER_OTLP_ENDPOINT` (OTLP/HTTP). Empty = tracing off.
+    endpoint: ""
+  metrics:
+    # -- Existing Secret with the bearer token protecting `/metrics` (`OAX_METRICS_TOKEN`).
+    existingSecret: ""
+    # -- Key in the Secret.
+    key: token
+  serviceMonitor:
+    # -- Create a ServiceMonitor (Prometheus Operator CRD required).
+    enabled: false
+    # -- Scrape interval.
+    interval: 30s
+    # -- Scrape timeout.
+    scrapeTimeout: 10s
+    # -- Extra labels (e.g. `release: kube-prometheus-stack`).
+    labels: {}
+  prometheusRule:
+    # -- Create a PrometheusRule with default alerts.
+    enabled: false
+    # -- Extra labels.
+    labels: {}
+    # -- 5xx ratio that fires `OpenAgentixApiErrorRate`.
+    errorRateThreshold: 0.05
+    # -- p95 latency (seconds) that fires `OpenAgentixApiLatencyHigh`.
+    latencyP95Seconds: 0.5
+    # -- Queued runs that fire `OpenAgentixRunQueueBacklog`.
+    queueBacklogThreshold: 100
+    # -- Extra rules appended to the group.
+    extraRules: []
+
+serviceAccount:
+  api:
+    # -- Create the control node ServiceAccount.
+    create: true
+    # -- Name (empty = `<fullname>-api`).
+    name: ""
+    # -- Annotations, e.g. `eks.amazonaws.com/role-arn` (IRSA).
+    annotations: {}
+  worker:
+    # -- Create the worker ServiceAccount.
+    create: true
+    # -- Name (empty = `<fullname>-worker`).
+    name: ""
+    # -- Annotations, e.g. `eks.amazonaws.com/role-arn` for Bedrock (IRSA).
+    annotations: {}
+
+# Pod and container security context shared by all components (PodSecurity "restricted").
+podSecurityContext:
+  # -- Run as non-root.
+  runAsNonRoot: true
+  # -- UID (`node` in the platform images).
+  runAsUser: 1000
+  # -- GID.
+  runAsGroup: 1000
+  # -- fsGroup for mounted volumes.
+  fsGroup: 1000
+  seccompProfile:
+    # -- Seccomp profile.
+    type: RuntimeDefault
+containerSecurityContext:
+  # -- No privilege escalation.
+  allowPrivilegeEscalation: false
+  # -- Read-only root file system (`/tmp` is an emptyDir).
+  readOnlyRootFilesystem: true
+  # -- Run as non-root.
+  runAsNonRoot: true
+  capabilities:
+    # -- Dropped capabilities.
+    drop: ["ALL"]
+  seccompProfile:
+    # -- Seccomp profile.
+    type: RuntimeDefault
+
+api:
+  # -- Replicas when autoscaling is off.
+  replicaCount: 2
+  # -- `OAX_DB_MIGRATE_ON_START` for the API. Keep false when `migrations.enabled`.
+  migrateOnStart: false
+  # -- Resources.
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 512Mi }
+  service:
+    # -- Service type.
+    type: ClusterIP
+    # -- Service port.
+    port: 80
+    # -- Service annotations.
+    annotations: {}
+  autoscaling:
+    # -- Enable the HorizontalPodAutoscaler.
+    enabled: false
+    # -- Minimum replicas.
+    minReplicas: 2
+    # -- Maximum replicas.
+    maxReplicas: 10
+    # -- Target CPU utilisation in percent.
+    targetCPUUtilizationPercentage: 70
+    # -- Target memory utilisation in percent (null = off).
+    targetMemoryUtilizationPercentage: null
+  pdb:
+    # -- Create a PodDisruptionBudget.
+    enabled: true
+    # -- minAvailable (ignored when maxUnavailable is set).
+    minAvailable: 1
+    # -- maxUnavailable.
+    maxUnavailable: null
+  # -- Liveness probe.
+  livenessProbe:
+    httpGet: { path: /healthz, port: http }
+    periodSeconds: 15
+    timeoutSeconds: 3
+    failureThreshold: 3
+  # -- Readiness probe.
+  readinessProbe:
+    httpGet: { path: /readyz, port: http }
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+  # -- Startup probe.
+  startupProbe:
+    httpGet: { path: /healthz, port: http }
+    periodSeconds: 5
+    failureThreshold: 30
+  # -- Pod annotations.
+  podAnnotations: {}
+  # -- Pod labels.
+  podLabels: {}
+  # -- Node selector.
+  nodeSelector: {}
+  # -- Tolerations.
+  tolerations: []
+  # -- Affinity.
+  affinity: {}
+  # -- Topology spread constraints. Empty = soft spread across zones and nodes.
+  topologySpreadConstraints: []
+  # -- Priority class.
+  priorityClassName: ""
+  # -- Termination grace period.
+  terminationGracePeriodSeconds: 30
+  # -- Extra env vars (list of EnvVar).
+  extraEnv: []
+  # -- Extra volumes.
+  extraVolumes: []
+  # -- Extra volume mounts.
+  extraVolumeMounts: []
+
+worker:
+  # -- Replicas when autoscaling is off (in-process runner of the MVP).
+  replicaCount: 1
+  # -- `OAX_WORKER_CONCURRENCY` parallel runs per pod.
+  concurrency: 4
+  # -- `OAX_WORKER_POLL_MS`.
+  pollMs: 500
+  # -- `OAX_WORKER_LEASE_SECONDS`.
+  leaseSeconds: 60
+  # -- `OAX_WORKER_MAX_ATTEMPTS`.
+  maxAttempts: 3
+  # -- `OAX_APPROVAL_POLL_MS`.
+  approvalPollMs: 1000
+  # -- `OAX_DEMO_MCP` (built-in demo MCP servers; demo only).
+  demoMcp: false
+  # -- Resources.
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+  autoscaling:
+    # -- Enable the HorizontalPodAutoscaler (CPU based; KEDA on queue depth is on the roadmap).
+    enabled: false
+    # -- Minimum replicas.
+    minReplicas: 1
+    # -- Maximum replicas.
+    maxReplicas: 5
+    # -- Target CPU utilisation in percent.
+    targetCPUUtilizationPercentage: 75
+    # -- Target memory utilisation in percent (null = off).
+    targetMemoryUtilizationPercentage: null
+  pdb:
+    # -- Create a PodDisruptionBudget (only rendered with more than one replica, or minReplicas > 1 under autoscaling).
+    enabled: true
+    # -- minAvailable.
+    minAvailable: 1
+    # -- maxUnavailable.
+    maxUnavailable: null
+  # -- Liveness probe (the worker has no HTTP endpoint; empty = none).
+  livenessProbe: {}
+  # -- Pod annotations.
+  podAnnotations: {}
+  # -- Pod labels.
+  podLabels: {}
+  # -- Node selector.
+  nodeSelector: {}
+  # -- Tolerations.
+  tolerations: []
+  # -- Affinity.
+  affinity: {}
+  # -- Topology spread constraints. Empty = soft spread across zones and nodes.
+  topologySpreadConstraints: []
+  # -- Priority class.
+  priorityClassName: ""
+  # -- Grace period; running runs are released (lease) on SIGTERM.
+  terminationGracePeriodSeconds: 60
+  # -- Extra env vars.
+  extraEnv: []
+  # -- Extra volumes.
+  extraVolumes: []
+  # -- Extra volume mounts.
+  extraVolumeMounts: []
+
+ui:
+  # -- Deploy the static UI (disabled until the UI image is published).
+  enabled: false
+  # -- Replicas.
+  replicaCount: 2
+  # -- Container port of the nginx-unprivileged based image.
+  containerPort: 8080
+  # -- UID/GID of the UI container (nginx-unprivileged uses 101).
+  runAsUser: 101
+  # -- Resources.
+  resources:
+    requests: { cpu: 10m, memory: 32Mi }
+    limits: { memory: 128Mi }
+  service:
+    # -- Service type.
+    type: ClusterIP
+    # -- Service port.
+    port: 80
+    # -- Service annotations.
+    annotations: {}
+  pdb:
+    # -- Create a PodDisruptionBudget.
+    enabled: true
+    # -- minAvailable.
+    minAvailable: 1
+    # -- maxUnavailable.
+    maxUnavailable: null
+  # -- Liveness probe.
+  livenessProbe:
+    httpGet: { path: /, port: http }
+    periodSeconds: 20
+  # -- Readiness probe.
+  readinessProbe:
+    httpGet: { path: /, port: http }
+    periodSeconds: 10
+  # -- Pod annotations.
+  podAnnotations: {}
+  # -- Pod labels.
+  podLabels: {}
+  # -- Node selector.
+  nodeSelector: {}
+  # -- Tolerations.
+  tolerations: []
+  # -- Affinity.
+  affinity: {}
+  # -- Topology spread constraints. Empty = soft spread across zones and nodes.
+  topologySpreadConstraints: []
+  # -- Priority class.
+  priorityClassName: ""
+
+migrations:
+  # -- Run `node dist/migrate-cli.js` as a Helm hook Job.
+  enabled: true
+  # -- Hook events. Empty = `pre-install,pre-upgrade` (external DB) or
+  # `post-install,pre-upgrade` (bundled PostgreSQL, which does not exist before install).
+  hookEvents: ""
+  # -- Job backoffLimit.
+  backoffLimit: 3
+  # -- Job activeDeadlineSeconds.
+  activeDeadlineSeconds: 600
+  # -- ttlSecondsAfterFinished (the hook is also deleted before the next run).
+  ttlSecondsAfterFinished: 3600
+  # -- Resources.
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 256Mi }
+
+ingress:
+  # -- Create an Ingress.
+  enabled: false
+  # -- IngressClass (`nginx`, `alb`, ...).
+  className: ""
+  # -- Annotations (see examples for nginx and AWS ALB).
+  annotations: {}
+  # -- Host name.
+  host: openagentix.example.com
+  # -- Paths routed to the API (the rest goes to the UI when `ui.enabled`).
+  apiPaths:
+    - /v1
+    - /openapi.json
+  # -- pathType of the generated paths.
+  pathType: Prefix
+  tls:
+    # -- Terminate TLS at the ingress.
+    enabled: false
+    # -- TLS Secret (empty with ALB/ACM or cert-manager annotations).
+    secretName: ""
+
+networkPolicy:
+  # -- Create NetworkPolicies: default deny for all chart pods plus the explicit rules below.
+  enabled: true
+  dns:
+    # -- Allow DNS to the cluster resolver.
+    enabled: true
+    # -- Peers of the DNS rule.
+    to:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: kube-system
+        podSelector:
+          matchLabels:
+            k8s-app: kube-dns
+  ingress:
+    # -- Peers allowed to reach api and ui (the ingress controller). ALB in IP mode: VPC CIDR.
+    from:
+      - namespaceSelector:
+          matchLabels:
+            kubernetes.io/metadata.name: ingress-nginx
+    # -- Peers allowed to scrape `/metrics` on the API.
+    metricsFrom: []
+  egress:
+    # -- Peers of the external database (CIDR or selectors). Bundled PostgreSQL is added automatically.
+    database: []
+    # -- Database port.
+    databasePort: 5432
+    # -- Peers of the external cache. Bundled Valkey is added automatically.
+    cache: []
+    # -- Cache port.
+    cachePort: 6379
+    # -- Egress rules (`to` + `ports`) to the OTLP collector.
+    otel: []
+    # -- Egress rules of the API to identity providers (OIDC issuer, LDAP).
+    auth: []
+    # -- Egress rules of the worker to model providers (Bedrock VPC endpoint, proxy, Ollama, ...).
+    providers: []
+    # -- Egress rules of the worker to MCP servers.
+    mcp: []
+    # -- Egress rules of the worker to event sources (Kafka, ...).
+    eventSources: []
+    # -- Egress rules to the Kubernetes API (needed by the v0.2 Job runner).
+    kubernetesApi: []
+
+# Prepared for v0.2: worker nodes as Kubernetes Jobs running toolbox images. The platform does
+# not consume these settings yet; enabling renders RBAC, a runner ConfigMap and NetworkPolicies.
+runners:
+  kubernetesJob:
+    # -- Render RBAC and configuration for the Kubernetes Job runner.
+    enabled: false
+    # -- Dedicated namespace for run Jobs (must differ from the release namespace).
+    namespace: openagentix-runs
+    # -- Create the namespace (with PodSecurity `restricted` labels).
+    createNamespace: false
+    # -- ServiceAccount used by run Job pods (no token, no RBAC). Annotate for IRSA.
+    jobServiceAccount:
+      # -- Name of the ServiceAccount in the runs namespace.
+      name: openagentix-run
+      # -- Annotations (e.g. IRSA role for Bedrock from worker nodes).
+      annotations: {}
+    # -- Default resources of a run Job.
+    jobResources:
+      requests: { cpu: 100m, memory: 128Mi }
+      limits: { memory: 512Mi }
+    # -- activeDeadlineSeconds of a run Job.
+    activeDeadlineSeconds: 1800
+    # -- ttlSecondsAfterFinished of a run Job.
+    ttlSecondsAfterFinished: 600
+    # -- Peers in the runs namespace may reach the API over these rules (run-token channel).
+    apiFrom: []
+  toolboxes:
+    # -- Allowlisted toolbox images; only these may run as worker nodes. Pin by digest.
+    allowlist: []
+    # Example:
+    # - name: trivy
+    #   image: ghcr.io/open-agentix/toolbox-trivy
+    #   digest: sha256:...
+    #   egress: []

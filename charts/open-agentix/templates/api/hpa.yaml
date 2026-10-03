@@ -1,0 +1,33 @@
+{{- with .Values.api.autoscaling }}
+{{- if .enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "open-agentix.componentName" (list $ "api") }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list $ "api") | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "open-agentix.componentName" (list $ "api") }}
+  minReplicas: {{ .minReplicas }}
+  maxReplicas: {{ .maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .targetCPUUtilizationPercentage }}
+    {{- with .targetMemoryUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ . }}
+    {{- end }}
+{{- end }}
+{{- end }}

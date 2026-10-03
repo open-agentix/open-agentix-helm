@@ -1,0 +1,345 @@
+suite: api deployment
+templates:
+  - api/deployment.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+chart:
+  version: 0.1.0
+  appVersion: 0.1.0
+tests:
+  - it: renders a hardened Deployment with the appVersion image
+    asserts:
+      - isKind: { of: Deployment }
+      - hasDocuments: { count: 1 }
+      - equal: { path: metadata.name, value: rel-open-agentix-api }
+      - equal: { path: spec.replicas, value: 2 }
+      - equal:
+          path: 'spec.template.spec.containers[0].image'
+          value: ghcr.io/open-agentix/open-agentix-api:0.1.0
+      - equal: { path: 'spec.template.spec.containers[0].command', value: ["node", "dist/main.js"] }
+      - equal: { path: spec.template.spec.automountServiceAccountToken, value: false }
+      - equal: { path: spec.template.spec.serviceAccountName, value: rel-open-agentix-api }
+      - equal: { path: spec.template.spec.securityContext.runAsNonRoot, value: true }
+      - equal: { path: spec.template.spec.securityContext.seccompProfile.type, value: RuntimeDefault }
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem', value: true }
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation', value: false }
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.capabilities.drop', value: ["ALL"] }
+      - equal: { path: 'spec.template.spec.containers[0].readinessProbe.httpGet.path', value: /readyz }
+      - equal: { path: 'spec.template.spec.containers[0].livenessProbe.httpGet.path', value: /healthz }
+      - contains:
+          path: spec.template.spec.volumes
+          content: { name: tmp, emptyDir: { sizeLimit: 256Mi } }
+      - contains:
+          path: 'spec.template.spec.containers[0].volumeMounts'
+          content: { name: tmp, mountPath: /tmp }
+
+  - it: composes the database URL from parts with the password from the Secret
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DB_PASSWORD
+            valueFrom: { secretKeyRef: { name: oax-db, key: password } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DATABASE_URL
+            value: postgres://openagentix_app:$(OAX_DB_PASSWORD)@db.example.com:5432/openagentix?sslmode=require
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_DB_MIGRATE_ON_START, value: "false" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_RUN_TOKEN_SECRET
+            valueFrom: { secretKeyRef: { name: oax-run-token, key: run-token-secret } }
+
+  - it: reads the complete database URL from the Secret when urlKey is set
+    set:
+      externalDatabase.urlKey: url
+      externalDatabase.host: ""
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DATABASE_URL
+            valueFrom: { secretKeyRef: { name: oax-db, key: url } }
+      - notContains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DB_PASSWORD
+            valueFrom: { secretKeyRef: { name: oax-db, key: password } }
+
+  - it: uses the bundled PostgreSQL service and Secret
+    set:
+      postgresql.enabled: true
+      postgresql.userDatabase.existingSecret: oax-pg
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DATABASE_URL
+            value: postgres://$(OAX_DB_USER):$(OAX_DB_PASSWORD)@rel-postgresql:5432/$(OAX_DB_NAME)?sslmode=disable
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DB_USER
+            valueFrom: { secretKeyRef: { name: oax-pg, key: user } }
+
+  - it: pins the image by digest and uses pull secrets
+    set:
+      image.registry: registry.internal
+      image.api.tag: "1.2.3"
+      image.api.digest: sha256:1111111111111111111111111111111111111111111111111111111111111111
+      image.pullSecrets: [regcred]
+    asserts:
+      - equal:
+          path: 'spec.template.spec.containers[0].image'
+          value: registry.internal/open-agentix/open-agentix-api:1.2.3@sha256:1111111111111111111111111111111111111111111111111111111111111111
+      - equal: { path: spec.template.spec.imagePullSecrets, value: [{ name: regcred }] }
+
+  - it: omits replicas when the HPA manages them
+    set:
+      api.autoscaling.enabled: true
+    asserts:
+      - notExists: { path: spec.replicas }
+
+  - it: renders soft topology spread by default and none when disabled
+    asserts:
+      - equal: { path: 'spec.template.spec.topologySpreadConstraints[0].topologyKey', value: topology.kubernetes.io/zone }
+      - equal: { path: 'spec.template.spec.topologySpreadConstraints[1].whenUnsatisfiable', value: ScheduleAnyway }
+
+  - it: renders no topology spread when disabled
+    set:
+      defaultTopologySpread: false
+    asserts:
+      - notExists: { path: spec.template.spec.topologySpreadConstraints }
+
+  - it: derives public URL, trust proxy and OIDC redirect from the ingress
+    set:
+      ingress.enabled: true
+      ingress.host: agents.example.com
+      ingress.tls.enabled: true
+      auth.oidc.enabled: true
+      auth.oidc.issuer: https://idp.example.com/realms/oax
+      auth.oidc.clientId: oax
+      auth.oidc.existingSecret: oax-oidc
+      auth.oidc.roleMapping: { admins: admin }
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_PUBLIC_URL, value: https://agents.example.com }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_TRUST_PROXY, value: "true" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_OIDC_REDIRECT_URI, value: https://agents.example.com/v1/auth/oidc/callback }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_OIDC_ROLE_MAPPING, value: '{"admins":"admin"}' }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_OIDC_CLIENT_SECRET
+            valueFrom: { secretKeyRef: { name: oax-oidc, key: client-secret } }
+
+  - it: configures LDAP, bootstrap admin and the audit signing key from Secrets
+    set:
+      auth.ldap.enabled: true
+      auth.ldap.url: ldaps://ldap.example.com:636
+      auth.ldap.userBaseDn: ou=people,dc=example,dc=com
+      auth.ldap.existingSecret: oax-ldap
+      auth.bootstrapAdmin.enabled: true
+      auth.bootstrapAdmin.email: admin@example.com
+      auth.bootstrapAdmin.existingSecret: oax-admin
+      audit.signingKey.existingSecret: oax-audit
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_LDAP_URL, value: ldaps://ldap.example.com:636 }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_LDAP_BIND_PASSWORD
+            valueFrom: { secretKeyRef: { name: oax-ldap, key: bind-password } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_BOOTSTRAP_ADMIN_PASSWORD
+            valueFrom: { secretKeyRef: { name: oax-admin, key: password } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_AUDIT_SIGNING_KEY
+            valueFrom: { secretKeyRef: { name: oax-audit, key: ed25519.pem } }
+
+  - it: appends the Bedrock provider and sets AWS and proxy variables
+    set:
+      aws.region: eu-central-1
+      aws.bedrock.enabled: true
+      aws.bedrock.vpcEndpointUrl: https://vpce-1.bedrock-runtime.eu-central-1.vpce.amazonaws.com
+      proxy.httpsProxy: http://proxy:3128
+      proxy.noProxy: 10.0.0.0/8
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_PROVIDERS
+            value: '[{"kind":"simulated","name":"simulated"},{"clearance":"confidential","endpoint":"https://vpce-1.bedrock-runtime.eu-central-1.vpce.amazonaws.com","kind":"bedrock","name":"bedrock","region":"eu-central-1"}]'
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: AWS_REGION, value: eu-central-1 }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: HTTPS_PROXY, value: http://proxy:3128 }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: NO_PROXY, value: "localhost,127.0.0.1,.svc,.cluster.local,10.0.0.0/8" }
+
+  - it: mounts secret references as files and env
+    set:
+      secrets.files: [oax-provider-keys]
+      secrets.env: [oax-secret-env]
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_SECRETS_DIR, value: /var/run/openagentix/secrets }
+      - contains:
+          path: 'spec.template.spec.containers[0].volumeMounts'
+          content: { name: secret-refs, mountPath: /var/run/openagentix/secrets, readOnly: true }
+      - equal:
+          path: 'spec.template.spec.volumes[1].projected.sources'
+          value: [{ secret: { name: oax-provider-keys } }]
+      - equal:
+          path: 'spec.template.spec.containers[0].envFrom'
+          value: [{ secretRef: { name: oax-secret-env } }]
+
+  - it: sets the external cache URL from a Secret
+    set:
+      cache.enabled: true
+      cache.existingSecret: oax-cache
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_CACHE_URL
+            valueFrom: { secretKeyRef: { name: oax-cache, key: url } }
+
+  - it: points the cache at the bundled Valkey
+    set:
+      valkey.enabled: true
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_CACHE_URL, value: redis://rel-valkey:6379 }
+
+  - it: adds extra env, volumes and scheduling settings
+    set:
+      config.extraEnv: [{ name: GLOBAL_X, value: "1" }]
+      api.extraEnv: [{ name: API_X, value: "2" }]
+      api.extraVolumes: [{ name: extra, emptyDir: {} }]
+      api.extraVolumeMounts: [{ name: extra, mountPath: /extra }]
+      api.nodeSelector: { kubernetes.io/os: linux }
+      api.priorityClassName: high
+      observability.otel.endpoint: http://otel:4318
+      observability.metrics.existingSecret: oax-metrics
+    asserts:
+      - contains: { path: 'spec.template.spec.containers[0].env', content: { name: GLOBAL_X, value: "1" } }
+      - contains: { path: 'spec.template.spec.containers[0].env', content: { name: API_X, value: "2" } }
+      - contains: { path: spec.template.spec.volumes, content: { name: extra, emptyDir: {} } }
+      - equal: { path: spec.template.spec.nodeSelector, value: { kubernetes.io/os: linux } }
+      - equal: { path: spec.template.spec.priorityClassName, value: high }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OTEL_EXPORTER_OTLP_ENDPOINT, value: http://otel:4318 }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_METRICS_TOKEN
+            valueFrom: { secretKeyRef: { name: oax-metrics, key: token } }
+
+  - it: fails without a run-token Secret
+    set:
+      runToken.existingSecret: ""
+    asserts:
+      - failedTemplate: { errorPattern: "runToken.existingSecret is required" }
+
+  - it: fails without a database Secret
+    set:
+      externalDatabase.existingSecret: ""
+    asserts:
+      - failedTemplate: { errorPattern: "externalDatabase.existingSecret is required" }
+
+  - it: fails without a database host
+    set:
+      externalDatabase.host: ""
+    asserts:
+      - failedTemplate: { errorPattern: "externalDatabase.host is required" }
+
+  - it: fails when the bundled PostgreSQL has no Secret
+    set:
+      postgresql.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "postgresql.userDatabase.existingSecret is required" }
+
+  - it: fails on incomplete OIDC, LDAP and bootstrap admin settings
+    set:
+      auth.oidc.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "auth.oidc.enabled requires issuer and clientId" }
+
+  - it: fails on incomplete LDAP settings
+    set:
+      auth.ldap.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "auth.ldap.enabled requires url and userBaseDn" }
+
+  - it: fails on an incomplete bootstrap admin
+    set:
+      auth.bootstrapAdmin.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "auth.bootstrapAdmin.enabled requires email and existingSecret" }
+
+  - it: fails when external and bundled cache are both enabled
+    set:
+      cache.enabled: true
+      cache.url: redis://cache:6379
+      valkey.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "mutually exclusive" }
+
+  - it: fails when the external cache has no URL
+    set:
+      cache.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "cache.enabled requires cache.url or cache.existingSecret" }
+
+  - it: fails when migrating on start and in the Job at the same time
+    set:
+      api.migrateOnStart: true
+    asserts:
+      - failedTemplate: { errorPattern: "api.migrateOnStart and migrations.enabled are mutually exclusive" }
+
+  - it: fails when Bedrock has no region
+    set:
+      aws.bedrock.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "aws.bedrock.enabled requires aws.region" }
+
+  - it: fails when the runs namespace equals the release namespace
+    set:
+      runners.kubernetesJob.enabled: true
+      runners.kubernetesJob.namespace: oax
+    asserts:
+      - failedTemplate: { errorPattern: "must be a dedicated namespace" }
+
+  - it: fails when the ingress has no host
+    set:
+      ingress.enabled: true
+      ingress.host: ""
+    asserts:
+      - failedTemplate: { errorPattern: "ingress.host is required" }

@@ -1,0 +1,77 @@
+{{- include "open-agentix.validate" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "api") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "api") | nindent 4 }}
+  {{- include "open-agentix.annotations" . | nindent 2 }}
+spec:
+  {{- if not .Values.api.autoscaling.enabled }}
+  replicas: {{ .Values.api.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list . "api") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "open-agentix.labels" (list . "api") | nindent 8 }}
+        {{- with .Values.api.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.api.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "open-agentix.serviceAccountName" (list . "api") }}
+      automountServiceAccountToken: false
+      {{- include "open-agentix.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      terminationGracePeriodSeconds: {{ .Values.api.terminationGracePeriodSeconds }}
+      {{- include "open-agentix.scheduling" (list . "api") | nindent 6 }}
+      containers:
+        - name: api
+          image: {{ include "open-agentix.image" (list . "api") | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "dist/main.js"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: OAX_HOST
+              value: "0.0.0.0"
+            - name: OAX_PORT
+              value: "8080"
+            {{- include "open-agentix.env.common" (list . "api") | nindent 12 }}
+          {{- include "open-agentix.envFrom" . | nindent 10 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          {{- with .Values.api.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.api.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.api.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.api.resources | nindent 12 }}
+          volumeMounts:
+            {{- include "open-agentix.volumeMounts" (list . "api") | nindent 12 }}
+      volumes:
+        {{- include "open-agentix.volumes" (list . "api") | nindent 8 }}
