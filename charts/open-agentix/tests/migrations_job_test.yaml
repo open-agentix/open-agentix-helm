@@ -1,0 +1,82 @@
+suite: migrations job
+templates:
+  - migrations/job.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+chart:
+  version: 0.1.0
+  appVersion: 0.1.0
+tests:
+  - it: runs migrate-cli as a pre-install/pre-upgrade hook with the API image
+    asserts:
+      - isKind: { of: Job }
+      - equal: { path: metadata.name, value: rel-open-agentix-migrations }
+      - equal: { path: 'metadata.annotations["helm.sh/hook"]', value: "pre-install,pre-upgrade" }
+      - equal: { path: 'metadata.annotations["helm.sh/hook-delete-policy"]', value: before-hook-creation }
+      - equal: { path: spec.template.spec.restartPolicy, value: Never }
+      - equal: { path: spec.backoffLimit, value: 3 }
+      - equal: { path: spec.template.spec.automountServiceAccountToken, value: false }
+      - equal: { path: 'spec.template.spec.containers[0].command', value: ["node", "dist/migrate-cli.js"] }
+      - equal:
+          path: 'spec.template.spec.containers[0].image'
+          value: ghcr.io/open-agentix/open-agentix-api:0.1.0
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem', value: true }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_RUN_TOKEN_SECRET
+            valueFrom: { secretKeyRef: { name: oax-run-token, key: run-token-secret } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DATABASE_URL
+            value: postgres://openagentix_app:$(OAX_DB_PASSWORD)@db.example.com:5432/openagentix?sslmode=require
+
+  - it: uses the separate migration role
+    set:
+      externalDatabase.migrations.user: openagentix_migrator
+      externalDatabase.migrations.existingSecret: oax-db-migrator
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DB_PASSWORD
+            valueFrom: { secretKeyRef: { name: oax-db-migrator, key: password } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DATABASE_URL
+            value: postgres://openagentix_migrator:$(OAX_DB_PASSWORD)@db.example.com:5432/openagentix?sslmode=require
+
+  - it: uses a migration URL from a Secret
+    set:
+      externalDatabase.migrations.existingSecret: oax-db-migrator
+      externalDatabase.migrations.urlKey: url
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DATABASE_URL
+            valueFrom: { secretKeyRef: { name: oax-db-migrator, key: url } }
+
+  - it: runs post-install with the bundled PostgreSQL
+    set:
+      postgresql.enabled: true
+      postgresql.userDatabase.existingSecret: oax-pg
+    asserts:
+      - equal: { path: 'metadata.annotations["helm.sh/hook"]', value: "post-install,pre-upgrade" }
+
+  - it: honours explicit hook events
+    set:
+      migrations.hookEvents: pre-upgrade
+    asserts:
+      - equal: { path: 'metadata.annotations["helm.sh/hook"]', value: pre-upgrade }
+
+  - it: is not rendered when disabled
+    set:
+      migrations.enabled: false
+    asserts:
+      - hasDocuments: { count: 0 }
