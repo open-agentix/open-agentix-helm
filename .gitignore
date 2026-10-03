@@ -1,0 +1,7 @@
+# Helm dependency archives are fetched by `helm dependency build` and never committed.
+charts/*/charts/*.tgz
+charts/*/tmpcharts/
+*.tgz
+# Local test output
+.out/
+tests/.rendered/
