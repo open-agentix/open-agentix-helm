@@ -1,0 +1,18 @@
+{{- with .Values.runners.kubernetesJob }}
+{{- if .enabled }}
+# Runner settings and the toolbox allowlist for the v0.2 Kubernetes Job runner. The platform
+# does not read this file yet; it is mounted nowhere until the runner ships.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "open-agentix.componentName" (list $ "runner") }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list $ "runner") | nindent 4 }}
+data:
+  runner.json: |
+    {{- dict "kind" "kubernetes-job" "namespace" .namespace "serviceAccountName" .jobServiceAccount.name "resources" .jobResources "activeDeadlineSeconds" .activeDeadlineSeconds "ttlSecondsAfterFinished" .ttlSecondsAfterFinished "podSecurityContext" $.Values.podSecurityContext "containerSecurityContext" $.Values.containerSecurityContext | toPrettyJson | nindent 4 }}
+  toolboxes.json: |
+    {{- $.Values.runners.toolboxes.allowlist | toPrettyJson | nindent 4 }}
+{{- end }}
+{{- end }}

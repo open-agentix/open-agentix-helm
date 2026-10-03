@@ -1,0 +1,70 @@
+suite: kubernetes job runner (v0.2 preparation)
+templates:
+  - runners/namespace.yaml
+  - runners/rbac.yaml
+  - runners/configmap.yaml
+  - runners/networkpolicy.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+tests:
+  - it: is disabled by default
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: grants the worker namespaced Job permissions only
+    template: runners/rbac.yaml
+    set:
+      runners.kubernetesJob.enabled: true
+    asserts:
+      - hasDocuments: { count: 3 }
+      - isKind: { of: Role }
+        documentIndex: 0
+      - equal: { path: metadata.namespace, value: openagentix-runs }
+        documentIndex: 0
+      - contains:
+          path: rules
+          content: { apiGroups: ["batch"], resources: ["jobs"], verbs: ["create", "get", "list", "watch", "delete"] }
+        documentIndex: 0
+      - equal:
+          path: 'subjects[0]'
+          value: { kind: ServiceAccount, name: rel-open-agentix-worker, namespace: oax }
+        documentIndex: 1
+      - isKind: { of: ServiceAccount }
+        documentIndex: 2
+      - equal: { path: automountServiceAccountToken, value: false }
+        documentIndex: 2
+
+  - it: creates a restricted namespace on request
+    template: runners/namespace.yaml
+    set:
+      runners.kubernetesJob.enabled: true
+      runners.kubernetesJob.createNamespace: true
+    asserts:
+      - isKind: { of: Namespace }
+      - equal: { path: 'metadata.labels["pod-security.kubernetes.io/enforce"]', value: restricted }
+
+  - it: publishes runner settings and the toolbox allowlist
+    template: runners/configmap.yaml
+    set:
+      runners.kubernetesJob.enabled: true
+      runners.toolboxes.allowlist:
+        - name: trivy
+          image: ghcr.io/open-agentix/toolbox-trivy
+          digest: sha256:3333333333333333333333333333333333333333333333333333333333333333
+    asserts:
+      - isKind: { of: ConfigMap }
+      - matchRegex: { path: 'data["runner.json"]', pattern: '"namespace": "openagentix-runs"' }
+      - matchRegex: { path: 'data["toolboxes.json"]', pattern: 'toolbox-trivy' }
+
+  - it: isolates run pods (DNS and API only)
+    template: runners/networkpolicy.yaml
+    set:
+      runners.kubernetesJob.enabled: true
+    asserts:
+      - equal: { path: metadata.namespace, value: openagentix-runs }
+      - equal: { path: spec.podSelector, value: {} }
+      - lengthEqual: { path: spec.egress, count: 2 }
+      - equal: { path: 'spec.egress[1].to[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]', value: oax }
