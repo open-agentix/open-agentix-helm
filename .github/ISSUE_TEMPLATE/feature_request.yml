@@ -1,0 +1,16 @@
+name: Feature request
+description: Propose a new chart capability or value
+labels: [enhancement]
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: User story
+      description: 'As a <persona>, I want <capability> so that <outcome>.'
+    validations: { required: true }
+  - type: textarea
+    id: proposal
+    attributes: { label: Proposal, description: New values, defaults, security impact }
+  - type: textarea
+    id: alternatives
+    attributes: { label: Alternatives considered }

@@ -1,0 +1,26 @@
+name: Bug report
+description: The chart does not render, install or behave as documented
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: 'Security problems: please do NOT open an issue, see SECURITY.md.'
+  - type: input
+    id: version
+    attributes: { label: Chart version, description: 'helm list -n <namespace>' }
+    validations: { required: true }
+  - type: input
+    id: env
+    attributes: { label: Kubernetes and Helm version, description: 'e.g. EKS 1.33, Helm 3.22' }
+    validations: { required: true }
+  - type: textarea
+    id: values
+    attributes: { label: Values (without secrets), render: yaml }
+  - type: textarea
+    id: what
+    attributes: { label: What happened?, description: Error output, events, logs }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: What did you expect? }
+    validations: { required: true }
