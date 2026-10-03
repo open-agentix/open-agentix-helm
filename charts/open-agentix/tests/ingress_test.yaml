@@ -1,0 +1,54 @@
+suite: ingress
+templates:
+  - ingress.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+tests:
+  - it: is disabled by default
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: routes everything to the API without UI (nginx example)
+    set:
+      ingress.enabled: true
+      ingress.className: nginx
+      ingress.host: agents.example.com
+      ingress.annotations:
+        nginx.ingress.kubernetes.io/proxy-buffering: "off"
+      ingress.tls.enabled: true
+      ingress.tls.secretName: agents-tls
+    asserts:
+      - isKind: { of: Ingress }
+      - equal: { path: spec.ingressClassName, value: nginx }
+      - equal: { path: 'spec.rules[0].host', value: agents.example.com }
+      - lengthEqual: { path: 'spec.rules[0].http.paths', count: 1 }
+      - equal: { path: 'spec.rules[0].http.paths[0].backend.service.name', value: rel-open-agentix-api }
+      - equal: { path: 'spec.tls[0].secretName', value: agents-tls }
+      - equal: { path: 'metadata.annotations["nginx.ingress.kubernetes.io/proxy-buffering"]', value: "off" }
+
+  - it: splits API paths and UI when the UI is enabled
+    set:
+      ingress.enabled: true
+      ui.enabled: true
+    asserts:
+      - lengthEqual: { path: 'spec.rules[0].http.paths', count: 3 }
+      - equal: { path: 'spec.rules[0].http.paths[0].path', value: /v1 }
+      - equal: { path: 'spec.rules[0].http.paths[0].backend.service.name', value: rel-open-agentix-api }
+      - equal: { path: 'spec.rules[0].http.paths[2].path', value: / }
+      - equal: { path: 'spec.rules[0].http.paths[2].backend.service.name', value: rel-open-agentix-ui }
+      - notExists: { path: spec.tls }
+
+  - it: supports an ACM-terminated ALB without TLS Secret
+    set:
+      ingress.enabled: true
+      ingress.className: alb
+      ingress.annotations:
+        alb.ingress.kubernetes.io/target-type: ip
+      ingress.tls.enabled: true
+    asserts:
+      - equal: { path: spec.ingressClassName, value: alb }
+      - notExists: { path: 'spec.tls[0].secretName' }
+      - equal: { path: 'spec.tls[0].hosts[0]', value: openagentix.example.com }

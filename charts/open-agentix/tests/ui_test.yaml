@@ -1,0 +1,52 @@
+suite: ui
+templates:
+  - ui/deployment.yaml
+  - ui/service.yaml
+  - ui/pdb.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+chart:
+  version: 0.1.0
+  appVersion: 0.1.0
+tests:
+  - it: is disabled by default
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: renders an unprivileged nginx Deployment with writable tmp dirs
+    template: ui/deployment.yaml
+    set:
+      ui.enabled: true
+    asserts:
+      - isKind: { of: Deployment }
+      - equal: { path: 'spec.template.spec.containers[0].image', value: ghcr.io/open-agentix/open-agentix-ui:0.1.0 }
+      - equal: { path: 'spec.template.spec.containers[0].ports[0].containerPort', value: 8080 }
+      - equal: { path: spec.template.spec.securityContext.runAsUser, value: 101 }
+      - equal: { path: spec.template.spec.securityContext.seccompProfile.type, value: RuntimeDefault }
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem', value: true }
+      - equal: { path: spec.template.spec.automountServiceAccountToken, value: false }
+      - contains:
+          path: 'spec.template.spec.containers[0].volumeMounts'
+          content: { name: nginx-cache, mountPath: /var/cache/nginx }
+
+  - it: renders the Service and PDB
+    set:
+      ui.enabled: true
+    asserts:
+      - isKind: { of: Service }
+        template: ui/service.yaml
+      - equal: { path: 'spec.ports[0].targetPort', value: http }
+        template: ui/service.yaml
+      - isKind: { of: PodDisruptionBudget }
+        template: ui/pdb.yaml
+
+  - it: skips the PDB for a single UI replica
+    template: ui/pdb.yaml
+    set:
+      ui.enabled: true
+      ui.replicaCount: 1
+    asserts:
+      - hasDocuments: { count: 0 }
