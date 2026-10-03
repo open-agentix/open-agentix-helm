@@ -1,0 +1,56 @@
+{{- if .Values.networkPolicy.enabled }}
+{{- $np := .Values.networkPolicy }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "api") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "api") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list . "api") | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Ingress controller / load balancer.
+    - from:
+        {{- toYaml $np.ingress.from | nindent 8 }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+    # Worker pods (run-token channel for remote workers).
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "open-agentix.selectorLabels" (list . "worker") | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+    {{- with $np.ingress.metricsFrom }}
+    # Prometheus scraping /metrics.
+    - from:
+        {{- toYaml . | nindent 8 }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+    {{- end }}
+    {{- if .Values.runners.kubernetesJob.enabled }}
+    # Worker nodes (run Jobs) in the dedicated runs namespace.
+    - from:
+        {{- if .Values.runners.kubernetesJob.apiFrom }}
+        {{- toYaml .Values.runners.kubernetesJob.apiFrom | nindent 8 }}
+        {{- else }}
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ .Values.runners.kubernetesJob.namespace }}
+        {{- end }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+    {{- end }}
+  egress:
+    {{- include "open-agentix.netpol.dns" . | nindent 4 }}
+    {{- include "open-agentix.netpol.database" . | nindent 4 }}
+    {{- include "open-agentix.netpol.cache" . | nindent 4 }}
+    {{- include "open-agentix.netpol.rules" $np.egress.otel | nindent 4 }}
+    {{- include "open-agentix.netpol.rules" $np.egress.auth | nindent 4 }}
+{{- end }}

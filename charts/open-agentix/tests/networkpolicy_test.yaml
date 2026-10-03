@@ -1,0 +1,146 @@
+suite: network policies
+templates:
+  - networkpolicy/default-deny.yaml
+  - networkpolicy/api.yaml
+  - networkpolicy/worker.yaml
+  - networkpolicy/ui.yaml
+  - networkpolicy/migrations.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+tests:
+  - it: denies all ingress and egress for every pod of the release
+    template: networkpolicy/default-deny.yaml
+    asserts:
+      - isKind: { of: NetworkPolicy }
+      - equal: { path: spec.policyTypes, value: [Ingress, Egress] }
+      - equal:
+          path: spec.podSelector.matchLabels
+          value: { app.kubernetes.io/name: open-agentix, app.kubernetes.io/instance: rel }
+      - notExists: { path: spec.ingress }
+      - notExists: { path: spec.egress }
+
+  - it: renders nothing when disabled
+    set:
+      networkPolicy.enabled: false
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: lets the ingress controller and workers reach the API
+    template: networkpolicy/api.yaml
+    asserts:
+      - equal:
+          path: 'spec.ingress[0].from[0].namespaceSelector.matchLabels'
+          value: { kubernetes.io/metadata.name: ingress-nginx }
+      - equal: { path: 'spec.ingress[0].ports[0].port', value: 8080 }
+      - equal: { path: 'spec.ingress[1].from[0].podSelector.matchLabels["app.kubernetes.io/component"]', value: worker }
+      - lengthEqual: { path: spec.ingress, count: 2 }
+
+  - it: allows DNS and database egress (port-only when no peers are given)
+    template: networkpolicy/api.yaml
+    asserts:
+      - equal: { path: 'spec.egress[0].ports[0]', value: { protocol: UDP, port: 53 } }
+      - equal: { path: 'spec.egress[1].ports[0]', value: { protocol: TCP, port: 5432 } }
+      - notExists: { path: 'spec.egress[1].to' }
+      - lengthEqual: { path: spec.egress, count: 2 }
+
+  - it: restricts database egress to the configured peers
+    template: networkpolicy/api.yaml
+    set:
+      networkPolicy.egress.database: [{ ipBlock: { cidr: 10.0.0.0/24 } }]
+    asserts:
+      - equal: { path: 'spec.egress[1].to[0].ipBlock.cidr', value: 10.0.0.0/24 }
+
+  - it: targets the bundled PostgreSQL and Valkey pods
+    template: networkpolicy/worker.yaml
+    set:
+      postgresql.enabled: true
+      postgresql.userDatabase.existingSecret: oax-pg
+      valkey.enabled: true
+    asserts:
+      - equal:
+          path: 'spec.egress[1].to[0].podSelector.matchLabels'
+          value: { app.kubernetes.io/name: postgresql, app.kubernetes.io/instance: rel }
+      - equal:
+          path: 'spec.egress[2].to[0].podSelector.matchLabels'
+          value: { app.kubernetes.io/name: valkey, app.kubernetes.io/instance: rel }
+
+  - it: adds metrics scraping and identity provider egress to the API
+    template: networkpolicy/api.yaml
+    set:
+      networkPolicy.ingress.metricsFrom:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: monitoring } }
+      networkPolicy.egress.auth:
+        - to: [{ ipBlock: { cidr: 10.9.0.0/24 } }]
+          ports: [{ protocol: TCP, port: 636 }]
+    asserts:
+      - lengthEqual: { path: spec.ingress, count: 3 }
+      - equal: { path: 'spec.egress[2].to[0].ipBlock.cidr', value: 10.9.0.0/24 }
+      - equal: { path: 'spec.egress[2].ports[0].port', value: 636 }
+
+  - it: gives the worker no ingress and explicit provider, MCP and event egress
+    template: networkpolicy/worker.yaml
+    set:
+      networkPolicy.egress.providers:
+        - to: [{ ipBlock: { cidr: 10.20.64.0/22 } }]
+          ports: [{ protocol: TCP, port: 443 }]
+      networkPolicy.egress.mcp:
+        - to: [{ namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: mcp } } }]
+      networkPolicy.egress.eventSources:
+        - to: [{ ipBlock: { cidr: 10.2.0.0/24 } }]
+          ports: [{ protocol: TCP, port: 9093 }]
+    asserts:
+      - equal: { path: spec.ingress, value: [] }
+      - equal: { path: 'spec.egress[2].to[0].podSelector.matchLabels["app.kubernetes.io/component"]', value: api }
+      - equal: { path: 'spec.egress[3].to[0].ipBlock.cidr', value: 10.20.64.0/22 }
+      - equal: { path: 'spec.egress[4].to[0].namespaceSelector.matchLabels["kubernetes.io/metadata.name"]', value: mcp }
+      - equal: { path: 'spec.egress[5].ports[0].port', value: 9093 }
+      - lengthEqual: { path: spec.egress, count: 6 }
+
+  - it: adds Kubernetes API egress only with the Job runner
+    template: networkpolicy/worker.yaml
+    set:
+      runners.kubernetesJob.enabled: true
+      networkPolicy.egress.kubernetesApi:
+        - to: [{ ipBlock: { cidr: 10.96.0.1/32 } }]
+          ports: [{ protocol: TCP, port: 443 }]
+    asserts:
+      - equal: { path: 'spec.egress[3].to[0].ipBlock.cidr', value: 10.96.0.1/32 }
+
+  - it: lets run Jobs reach the API from the runs namespace
+    template: networkpolicy/api.yaml
+    set:
+      runners.kubernetesJob.enabled: true
+    asserts:
+      - equal:
+          path: 'spec.ingress[2].from[0].namespaceSelector.matchLabels'
+          value: { kubernetes.io/metadata.name: openagentix-runs }
+
+  - it: gives the UI ingress only and no egress
+    template: networkpolicy/ui.yaml
+    set:
+      ui.enabled: true
+    asserts:
+      - equal: { path: spec.egress, value: [] }
+      - equal: { path: 'spec.ingress[0].ports[0].port', value: 8080 }
+
+  - it: skips the UI policy without UI
+    template: networkpolicy/ui.yaml
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: gives the migrations Job DNS and database egress only
+    template: networkpolicy/migrations.yaml
+    asserts:
+      - equal: { path: 'spec.podSelector.matchLabels["app.kubernetes.io/component"]', value: migrations }
+      - lengthEqual: { path: spec.egress, count: 2 }
+      - equal: { path: spec.ingress, value: [] }
+
+  - it: can drop the DNS rule
+    template: networkpolicy/migrations.yaml
+    set:
+      networkPolicy.dns.enabled: false
+    asserts:
+      - lengthEqual: { path: spec.egress, count: 1 }
