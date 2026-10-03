@@ -1,0 +1,63 @@
+{{- if .Values.migrations.enabled }}
+{{- include "open-agentix.validate" . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "migrations") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "migrations") | nindent 4 }}
+  annotations:
+    helm.sh/hook: {{ include "open-agentix.migrationHooks" . }}
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  backoffLimit: {{ .Values.migrations.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migrations.activeDeadlineSeconds }}
+  ttlSecondsAfterFinished: {{ .Values.migrations.ttlSecondsAfterFinished }}
+  template:
+    metadata:
+      labels:
+        {{- include "open-agentix.labels" (list . "migrations") | nindent 8 }}
+    spec:
+      restartPolicy: Never
+      # Hooks run before chart-managed ServiceAccounts exist; the Job needs no API access.
+      automountServiceAccountToken: false
+      {{- include "open-agentix.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.api.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.api.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migrations
+          image: {{ include "open-agentix.image" (list . "api") | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["node", "dist/migrate-cli.js"]
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: OAX_LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            {{- include "open-agentix.env.database" (list . "migrations") | nindent 12 }}
+            {{- include "open-agentix.env.runToken" . | nindent 12 }}
+          securityContext:
+            {{- toYaml .Values.containerSecurityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.migrations.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+{{- end }}
