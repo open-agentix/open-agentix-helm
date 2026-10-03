@@ -1,0 +1,33 @@
+{{- with .Values.observability.serviceMonitor }}
+{{- if .enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "open-agentix.componentName" (list $ "api") }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list $ "api") | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  selector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list $ "api") | nindent 6 }}
+  namespaceSelector:
+    matchNames:
+      - {{ $.Release.Namespace }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{ .interval }}
+      scrapeTimeout: {{ .scrapeTimeout }}
+      {{- with $.Values.observability.metrics.existingSecret }}
+      authorization:
+        type: Bearer
+        credentials:
+          name: {{ . }}
+          key: {{ $.Values.observability.metrics.key }}
+      {{- end }}
+{{- end }}
+{{- end }}

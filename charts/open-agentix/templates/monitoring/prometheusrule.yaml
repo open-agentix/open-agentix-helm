@@ -1,0 +1,55 @@
+{{- with .Values.observability.prometheusRule }}
+{{- if .enabled }}
+{{- $job := include "open-agentix.componentName" (list $ "api") }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "open-agentix.fullname" $ }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list $) | nindent 4 }}
+    {{- with .labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: open-agentix
+      rules:
+        - alert: OpenAgentixApiDown
+          expr: absent(up{job="{{ $job }}", namespace="{{ $.Release.Namespace }}"} == 1)
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: No open-agentix API instance is up in {{ $.Release.Namespace }}.
+        - alert: OpenAgentixApiErrorRate
+          expr: |
+            sum(rate(oax_http_request_duration_seconds_count{job="{{ $job }}", namespace="{{ $.Release.Namespace }}", status=~"5.."}[5m]))
+              / clamp_min(sum(rate(oax_http_request_duration_seconds_count{job="{{ $job }}", namespace="{{ $.Release.Namespace }}"}[5m])), 1e-9)
+              > {{ .errorRateThreshold }}
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: More than {{ mulf .errorRateThreshold 100 }} % of API requests fail with 5xx.
+        - alert: OpenAgentixApiLatencyHigh
+          expr: |
+            histogram_quantile(0.95, sum by (le) (rate(oax_http_request_duration_seconds_bucket{job="{{ $job }}", namespace="{{ $.Release.Namespace }}"}[5m])))
+              > {{ .latencyP95Seconds }}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: API p95 latency is above {{ .latencyP95Seconds }} s.
+        - alert: OpenAgentixRunQueueBacklog
+          expr: max(oax_runs_by_status{job="{{ $job }}", namespace="{{ $.Release.Namespace }}", status="queued"}) > {{ .queueBacklogThreshold }}
+          for: 15m
+          labels:
+            severity: warning
+          annotations:
+            summary: More than {{ .queueBacklogThreshold }} runs are queued; scale the worker.
+        {{- with .extraRules }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+{{- end }}
+{{- end }}

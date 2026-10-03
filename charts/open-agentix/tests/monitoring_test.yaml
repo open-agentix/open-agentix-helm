@@ -1,0 +1,52 @@
+suite: monitoring
+templates:
+  - monitoring/servicemonitor.yaml
+  - monitoring/prometheusrule.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+tests:
+  - it: is disabled by default
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: scrapes /metrics with the bearer token Secret
+    template: monitoring/servicemonitor.yaml
+    set:
+      observability.serviceMonitor.enabled: true
+      observability.serviceMonitor.labels: { release: kube-prometheus-stack }
+      observability.metrics.existingSecret: oax-metrics
+    asserts:
+      - isKind: { of: ServiceMonitor }
+      - equal: { path: metadata.labels.release, value: kube-prometheus-stack }
+      - equal: { path: 'spec.endpoints[0].path', value: /metrics }
+      - equal: { path: 'spec.endpoints[0].port', value: http }
+      - equal: { path: 'spec.endpoints[0].authorization.credentials', value: { name: oax-metrics, key: token } }
+
+  - it: scrapes without authorization when no token is configured
+    template: monitoring/servicemonitor.yaml
+    set:
+      observability.serviceMonitor.enabled: true
+    asserts:
+      - notExists: { path: 'spec.endpoints[0].authorization' }
+
+  - it: renders default alerts with configurable thresholds
+    template: monitoring/prometheusrule.yaml
+    set:
+      observability.prometheusRule.enabled: true
+      observability.prometheusRule.queueBacklogThreshold: 42
+      observability.prometheusRule.extraRules:
+        - alert: Custom
+          expr: vector(1)
+    asserts:
+      - isKind: { of: PrometheusRule }
+      - equal: { path: 'spec.groups[0].rules[0].alert', value: OpenAgentixApiDown }
+      - matchRegex:
+          path: 'spec.groups[0].rules[3].expr'
+          pattern: 'status="queued"\}\) > 42$'
+      - matchRegex:
+          path: 'spec.groups[0].rules[1].expr'
+          pattern: 'job="rel-open-agentix-api"'
+      - equal: { path: 'spec.groups[0].rules[4].alert', value: Custom }
