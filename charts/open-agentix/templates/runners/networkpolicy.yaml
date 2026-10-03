@@ -1,0 +1,30 @@
+{{- with .Values.runners.kubernetesJob }}
+{{- if and .enabled $.Values.networkPolicy.enabled }}
+# Run Job pods: default deny; DNS and the control node API only. Per-toolbox egress is added by
+# the runner (v0.2) from the toolbox allowlist.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "open-agentix.componentName" (list $ "runner") }}
+  namespace: {{ .namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list $ "runner") | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    {{- include "open-agentix.netpol.dns" $ | nindent 4 }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $.Release.Namespace }}
+          podSelector:
+            matchLabels:
+              {{- include "open-agentix.selectorLabels" (list $ "api") | nindent 14 }}
+      ports:
+        - { protocol: TCP, port: 8080 }
+{{- end }}
+{{- end }}
