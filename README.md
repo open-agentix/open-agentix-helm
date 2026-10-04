@@ -15,7 +15,7 @@ agentix-zero is the project's agent account; humans review and own every decisio
 
 | Chart | Version | App version | Path |
 | --- | --- | --- | --- |
-| `open-agentix` | 0.2.0 | 0.1.0 | [`charts/open-agentix`](charts/open-agentix) |
+| `open-agentix` | 0.2.1 | 0.1.0 | [`charts/open-agentix`](charts/open-agentix) |
 
 ## One command
 

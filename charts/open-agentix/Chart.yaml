@@ -5,7 +5,7 @@ description: >-
   bundled PostgreSQL and hardened defaults (PodSecurity restricted, default-deny NetworkPolicies)
   for Kubernetes and EKS.
 type: application
-version: 0.2.0
+version: 0.2.1
 appVersion: "0.1.0"
 kubeVersion: ">=1.27.0-0"
 home: https://openagentix.si
@@ -21,7 +21,7 @@ keywords:
   - bedrock
 maintainers:
   - name: agentix-zero
-    email: github@openagentix.si
+    email: info@openagentix.si
     url: https://github.com/agentix-zero
 annotations:
   artifacthub.io/license: Apache-2.0
