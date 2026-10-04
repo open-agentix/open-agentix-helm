@@ -1,0 +1,1204 @@
+---
+# Source: open-agentix/templates/networkpolicy/api.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-api
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: api
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Ingress controller / load balancer.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - { protocol: TCP, port: 8080 }
+    # Worker pods (run-token channel for remote workers).
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: worker
+      ports:
+        - { protocol: TCP, port: 8080 }
+  egress:
+    
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: postgresql
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# Source: open-agentix/templates/networkpolicy/default-deny.yaml
+# Default deny: every pod of this release (api, worker, ui, migrations) starts with no ingress
+# and no egress; the policies next to this file open exactly what each component needs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-default-deny
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# Source: open-agentix/templates/networkpolicy/migrations.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-migrations
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: migrations
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: migrations
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: postgresql
+      ports:
+        - { protocol: TCP, port: 5432 }
+---
+# Source: open-agentix/templates/networkpolicy/postgresql.yaml
+# The bundled PostgreSQL accepts connections only from api, worker, the migrations Job and the
+# backup job, and has no egress at all.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-postgresql
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: postgresql
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: postgresql
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: api
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: worker
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: migrations
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: postgresql-backup
+      ports:
+        - { protocol: TCP, port: 5432 }
+  egress: []
+---
+# Source: open-agentix/templates/networkpolicy/ui.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-ui
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: ui
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: ui
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - { protocol: TCP, port: 8080 }
+  # Static files only: no egress at all.
+  egress: []
+---
+# Source: open-agentix/templates/networkpolicy/worker.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: oax-open-agentix-worker
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: worker
+  policyTypes:
+    - Ingress
+    - Egress
+  # No ingress: the worker pulls work from the queue.
+  ingress: []
+  egress:
+    
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: postgresql
+      ports:
+        - { protocol: TCP, port: 5432 }
+    
+    # Control node API (policy gate / run-token channel).
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: api
+      ports:
+        - { protocol: TCP, port: 8080 }
+---
+# Source: open-agentix/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oax-open-agentix-api
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+automountServiceAccountToken: false
+---
+# Source: open-agentix/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: oax-open-agentix-worker
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+automountServiceAccountToken: false
+---
+# Source: open-agentix/templates/secret-generated.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: oax-open-agentix-generated
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: generated
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  annotations:
+    helm.sh/resource-policy: keep
+type: Opaque
+data:
+  run-token-secret: "<generated>"
+  postgres-password: "<generated>"
+  app-password: "<generated>"
+  migrator-password: "<generated>"
+  ed25519.pem: "<generated>"
+---
+# Source: open-agentix/templates/postgresql/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oax-open-agentix-postgresql-init
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: postgresql
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  
+data:
+  # Runs once on an empty data directory (docker-entrypoint-initdb.d). Creates the migration
+  # owner and the least-privilege application role (see the platform's deploy/sql/roles.sql).
+  10-roles.sh: |
+    #!/bin/sh
+    set -eu
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname postgres \
+      -v migrator_user="openagentix_migrator" -v app_user="openagentix_app" \
+      -v dbname="openagentix" \
+      -v migrator_pw="$OAX_MIGRATOR_PASSWORD" -v app_pw="$OAX_APP_PASSWORD" <<'SQL'
+    CREATE ROLE :"migrator_user" LOGIN PASSWORD :'migrator_pw';
+    CREATE ROLE :"app_user" LOGIN PASSWORD :'app_pw';
+    CREATE DATABASE :"dbname" OWNER :"migrator_user";
+    REVOKE ALL ON DATABASE :"dbname" FROM PUBLIC;
+    GRANT CONNECT ON DATABASE :"dbname" TO :"app_user";
+    \connect :"dbname"
+    GRANT USAGE ON SCHEMA public TO :"app_user";
+    ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_user" IN SCHEMA public
+      GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"app_user";
+    ALTER DEFAULT PRIVILEGES FOR ROLE :"migrator_user" IN SCHEMA public
+      GRANT USAGE, SELECT ON SEQUENCES TO :"app_user";
+    SQL
+---
+# Source: open-agentix/templates/api/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oax-open-agentix-api
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+# Source: open-agentix/templates/postgresql/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oax-open-agentix-postgresql
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: postgresql
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: postgresql
+---
+# Source: open-agentix/templates/ui/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: oax-open-agentix-ui
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: ui
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: ui
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+---
+# Source: open-agentix/templates/api/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oax-open-agentix-api
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: api
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: open-agentix-0.2.0
+        app.kubernetes.io/name: open-agentix
+        app.kubernetes.io/instance: oax
+        app.kubernetes.io/component: api
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: open-agentix
+    spec:
+      serviceAccountName: oax-open-agentix-api
+      automountServiceAccountToken: false
+      
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 30
+      
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: api
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: api
+      containers:
+        - name: api
+          image: "ghcr.io/open-agentix/open-agentix-api:0.1.0"
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/main.js"]
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: OAX_HOST
+              value: "0.0.0.0"
+            - name: OAX_PORT
+              value: "8080"
+            - name: NODE_ENV
+              value: production
+            - name: OAX_LOG_LEVEL
+              value: "info"
+            - name: OAX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: "oax-open-agentix-generated", key: "app-password" }
+            - name: OAX_DATABASE_URL
+              value: "postgres://openagentix_app:$(OAX_DB_PASSWORD)@oax-open-agentix-postgresql:5432/openagentix?sslmode=disable"
+            - name: OAX_DB_POOL_MAX
+              value: "20"
+            - name: OAX_DB_STATEMENT_TIMEOUT_MS
+              value: "15000"
+            - name: OAX_DB_MIGRATE_ON_START
+              value: "true"
+            - name: OAX_PUBLIC_URL
+              value: "https://demo.example.com"
+            - name: OAX_UI_URL
+              value: "https://demo.example.com"
+            - name: OAX_TRUST_PROXY
+              value: "true"
+            - name: OAX_BODY_LIMIT_BYTES
+              value: "1048576"
+            - name: OAX_CACHE_MAX_ENTRIES
+              value: "10000"
+            - name: OAX_AUTH_CACHE_TTL_SECONDS
+              value: "30"
+            - name: OAX_SESSION_TTL_SECONDS
+              value: "28800"
+            - name: OAX_TOKEN_MAX_TTL_DAYS
+              value: "365"
+            - name: OAX_RATE_LIMIT_MAX
+              value: "600"
+            - name: OAX_RATE_LIMIT_LOGIN_MAX
+              value: "10"
+            - name: OAX_AUDIT_SIGNING_KEY
+              valueFrom:
+                secretKeyRef: { name: "oax-open-agentix-generated", key: "ed25519.pem" }
+            - name: OAX_AUDIT_SIGNING_KEY_ID
+              value: "default"
+            - name: OAX_AUDIT_PUBLIC_KEYS
+              value: "{}"
+            - name: OAX_AUDIT_CHECKPOINT_EVERY
+              value: "1000"
+            - name: OAX_RUN_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef: { name: "oax-open-agentix-generated", key: "run-token-secret" }
+            - name: OAX_RUN_TOKEN_TTL_SECONDS
+              value: "14400"
+            - name: OAX_PROVIDERS
+              value: "[{\"kind\":\"simulated\",\"name\":\"simulated\"}]"
+            - name: OAX_PRICE_TABLE
+              value: "[]"
+            - name: OAX_CONTROL_MAX_TOOL_CALLS_PER_MINUTE
+              value: "30"
+            - name: OAX_DEFAULT_MAX_STEPS
+              value: "50"
+            - name: OAX_DEFAULT_TIMEOUT_SECONDS
+              value: "1800"
+            - name: OAX_WEBHOOK_TOLERANCE_SECONDS
+              value: "300"
+            - name: OAX_WEBHOOK_MAX_BYTES
+              value: "1048576"
+            - name: OAX_SSE_POLL_MS
+              value: "500"
+            - name: OAX_DEMO_MODE
+              value: "true"
+            - name: OAX_DEMO_PASSWORD
+              value: "demo-password-2026"
+            - name: OTEL_SERVICE_NAME
+              value: "openagentix-api"
+          
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            failureThreshold: 30
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 15
+            timeoutSeconds: 3
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /readyz
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            limits:
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+# Source: open-agentix/templates/ui/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oax-open-agentix-ui
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: ui
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: ui
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: open-agentix-0.2.0
+        app.kubernetes.io/name: open-agentix
+        app.kubernetes.io/instance: oax
+        app.kubernetes.io/component: ui
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: open-agentix
+    spec:
+      automountServiceAccountToken: false
+      
+      securityContext:
+        fsGroup: 101
+        runAsGroup: 101
+        runAsNonRoot: true
+        runAsUser: 101
+        seccompProfile:
+          type: RuntimeDefault
+      
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: ui
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: ui
+      containers:
+        - name: ui
+          image: "ghcr.io/open-agentix/open-agentix-ui:0.1.0"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            periodSeconds: 10
+          resources:
+            limits:
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 32Mi
+          volumeMounts:
+            # nginx-unprivileged writes its pid and temp files here (read-only root fs).
+            - name: tmp
+              mountPath: /tmp
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        - name: nginx-cache
+          emptyDir:
+            sizeLimit: 64Mi
+---
+# Source: open-agentix/templates/worker/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oax-open-agentix-worker
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: worker
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: worker
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: open-agentix-0.2.0
+        app.kubernetes.io/name: open-agentix
+        app.kubernetes.io/instance: oax
+        app.kubernetes.io/component: worker
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: open-agentix
+    spec:
+      serviceAccountName: oax-open-agentix-worker
+      # The token is only needed by the (v0.2) Kubernetes Job runner. IRSA works without it.
+      automountServiceAccountToken: false
+      
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      terminationGracePeriodSeconds: 60
+      
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: worker
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: open-agentix
+              app.kubernetes.io/instance: oax
+              app.kubernetes.io/component: worker
+      containers:
+        - name: worker
+          image: "ghcr.io/open-agentix/open-agentix-worker:0.1.0"
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/main.js"]
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: OAX_LOG_LEVEL
+              value: "info"
+            - name: OAX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: "oax-open-agentix-generated", key: "app-password" }
+            - name: OAX_DATABASE_URL
+              value: "postgres://openagentix_app:$(OAX_DB_PASSWORD)@oax-open-agentix-postgresql:5432/openagentix?sslmode=disable"
+            - name: OAX_DB_POOL_MAX
+              value: "20"
+            - name: OAX_DB_STATEMENT_TIMEOUT_MS
+              value: "15000"
+            - name: OAX_DB_MIGRATE_ON_START
+              value: "false"
+            - name: OAX_PUBLIC_URL
+              value: "https://demo.example.com"
+            - name: OAX_UI_URL
+              value: "https://demo.example.com"
+            - name: OAX_TRUST_PROXY
+              value: "true"
+            - name: OAX_BODY_LIMIT_BYTES
+              value: "1048576"
+            - name: OAX_CACHE_MAX_ENTRIES
+              value: "10000"
+            - name: OAX_AUTH_CACHE_TTL_SECONDS
+              value: "30"
+            - name: OAX_SESSION_TTL_SECONDS
+              value: "28800"
+            - name: OAX_TOKEN_MAX_TTL_DAYS
+              value: "365"
+            - name: OAX_RATE_LIMIT_MAX
+              value: "600"
+            - name: OAX_RATE_LIMIT_LOGIN_MAX
+              value: "10"
+            - name: OAX_AUDIT_SIGNING_KEY
+              valueFrom:
+                secretKeyRef: { name: "oax-open-agentix-generated", key: "ed25519.pem" }
+            - name: OAX_AUDIT_SIGNING_KEY_ID
+              value: "default"
+            - name: OAX_AUDIT_PUBLIC_KEYS
+              value: "{}"
+            - name: OAX_AUDIT_CHECKPOINT_EVERY
+              value: "1000"
+            - name: OAX_RUN_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef: { name: "oax-open-agentix-generated", key: "run-token-secret" }
+            - name: OAX_RUN_TOKEN_TTL_SECONDS
+              value: "14400"
+            - name: OAX_PROVIDERS
+              value: "[{\"kind\":\"simulated\",\"name\":\"simulated\"}]"
+            - name: OAX_PRICE_TABLE
+              value: "[]"
+            - name: OAX_CONTROL_MAX_TOOL_CALLS_PER_MINUTE
+              value: "30"
+            - name: OAX_DEFAULT_MAX_STEPS
+              value: "50"
+            - name: OAX_DEFAULT_TIMEOUT_SECONDS
+              value: "1800"
+            - name: OAX_WEBHOOK_TOLERANCE_SECONDS
+              value: "300"
+            - name: OAX_WEBHOOK_MAX_BYTES
+              value: "1048576"
+            - name: OAX_SSE_POLL_MS
+              value: "500"
+            - name: OAX_WORKER_CONCURRENCY
+              value: "2"
+            - name: OAX_WORKER_POLL_MS
+              value: "500"
+            - name: OAX_WORKER_LEASE_SECONDS
+              value: "60"
+            - name: OAX_WORKER_MAX_ATTEMPTS
+              value: "3"
+            - name: OAX_APPROVAL_POLL_MS
+              value: "1000"
+            - name: OAX_DEMO_MCP
+              value: "true"
+            - name: OTEL_SERVICE_NAME
+              value: "openagentix-worker"
+          
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+---
+# Source: open-agentix/templates/postgresql/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: oax-open-agentix-postgresql
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: postgresql
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  
+spec:
+  replicas: 1
+  serviceName: oax-open-agentix-postgresql
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: open-agentix
+      app.kubernetes.io/instance: oax
+      app.kubernetes.io/component: postgresql
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: open-agentix-0.2.0
+        app.kubernetes.io/name: open-agentix
+        app.kubernetes.io/instance: oax
+        app.kubernetes.io/component: postgresql
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: open-agentix
+    spec:
+      automountServiceAccountToken: false
+      
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 70
+        runAsGroup: 70
+        fsGroup: 70
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgresql
+          image: "docker.io/library/postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea"
+          imagePullPolicy: IfNotPresent
+          args:
+            - -c
+            - "max_connections=200"
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: postgres
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: "oax-open-agentix-generated", key: "postgres-password" } }
+            - name: OAX_APP_PASSWORD
+              valueFrom: { secretKeyRef: { name: "oax-open-agentix-generated", key: "app-password" } }
+            - name: OAX_MIGRATOR_PASSWORD
+              valueFrom: { secretKeyRef: { name: "oax-open-agentix-generated", key: "migrator-password" } }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1"]
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            limits:
+              memory: 1Gi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: init
+          configMap:
+            name: oax-open-agentix-postgresql-init
+            defaultMode: 0555
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/name: open-agentix
+          app.kubernetes.io/instance: oax
+          app.kubernetes.io/component: postgresql
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 2Gi
+---
+# Source: open-agentix/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oax-open-agentix
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "demo.example.com"
+      secretName: demo-tls
+  rules:
+    - host: "demo.example.com"
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend:
+              service:
+                name: oax-open-agentix-api
+                port:
+                  name: http
+          - path: /openapi.json
+            pathType: Prefix
+            backend:
+              service:
+                name: oax-open-agentix-api
+                port:
+                  name: http
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: oax-open-agentix-ui
+                port:
+                  name: http
+---
+# Source: open-agentix/templates/migrations/job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oax-open-agentix-migrations
+  namespace: openagentix
+  labels:
+    helm.sh/chart: open-agentix-0.2.0
+    app.kubernetes.io/name: open-agentix
+    app.kubernetes.io/instance: oax
+    app.kubernetes.io/component: migrations
+    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/part-of: open-agentix
+  annotations:
+    helm.sh/hook: post-install,pre-upgrade
+    helm.sh/hook-weight: "-5"
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 3
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        helm.sh/chart: open-agentix-0.2.0
+        app.kubernetes.io/name: open-agentix
+        app.kubernetes.io/instance: oax
+        app.kubernetes.io/component: migrations
+        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/part-of: open-agentix
+    spec:
+      restartPolicy: Never
+      # Hooks run before chart-managed ServiceAccounts exist; the Job needs no API access.
+      automountServiceAccountToken: false
+      
+      securityContext:
+        fsGroup: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrations
+          image: "ghcr.io/open-agentix/open-agentix-api:0.1.0"
+          imagePullPolicy: IfNotPresent
+          command: ["node", "dist/migrate-cli.js"]
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: OAX_LOG_LEVEL
+              value: "info"
+            - name: OAX_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: { name: "oax-open-agentix-generated", key: "migrator-password" }
+            - name: OAX_DATABASE_URL
+              value: "postgres://openagentix_migrator:$(OAX_DB_PASSWORD)@oax-open-agentix-postgresql:5432/openagentix?sslmode=disable"
+            - name: OAX_RUN_TOKEN_SECRET
+              valueFrom:
+                secretKeyRef: { name: "oax-open-agentix-generated", key: "run-token-secret" }
+            - name: OAX_RUN_TOKEN_TTL_SECONDS
+              value: "14400"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 50m
+              memory: 128Mi
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

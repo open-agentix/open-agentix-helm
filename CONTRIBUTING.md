@@ -55,7 +55,6 @@ Every PR that changes the chart bumps `version` (chart-testing enforces it) and 
 
 ```bash
 scripts/test-local.sh                       # everything whose tools are installed
-helm dependency build charts/open-agentix   # once, needs network
 helm unittest charts/open-agentix           # helm-unittest plugin
 scripts/golden.sh --update                  # after intended template changes
 python3 scripts/values-table.py --write charts/open-agentix/README.md

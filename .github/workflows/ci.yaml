@@ -54,11 +54,6 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: ${{ env.HELM_VERSION }}
-      - name: build dependencies and verify archive digests
-        run: |
-          helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/
-          helm dependency build "$CHART"
-          (cd "$CHART" && sha256sum -c dependency-digests.txt)
       - name: helm lint
         run: |
           for f in examples/*.yaml "$CHART"/ci/*.yaml tests/values/*.yaml; do
@@ -100,11 +95,6 @@ jobs:
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5.0.1
         with:
           version: ${{ env.HELM_VERSION }}
-      - name: build dependencies
-        run: |
-          helm repo add groundhog2k https://groundhog2k.github.io/helm-charts/
-          helm dependency build "$CHART"
-          (cd "$CHART" && sha256sum -c dependency-digests.txt)
       - uses: d3adb5/helm-unittest-action@985d798b675caa501251573380b5e026ff768c50 # v2.5.1
         with:
           helm-version: ${{ env.HELM_VERSION }}
@@ -140,20 +130,12 @@ jobs:
       # rendering only (lint-template, unittest).
       - uses: helm/kind-action@06c1ae10762d3b9c1644e7fe69596ae519e015a2 # v1.15.0
         if: vars.OAX_IMAGES_PUBLISHED == 'true'
-      - name: prepare namespace, secrets and PostgreSQL
+      - name: prepare the PodSecurity restricted namespace
         if: vars.OAX_IMAGES_PUBLISHED == 'true'
         run: |
+          # Default values: bundled PostgreSQL, generated secrets. Nothing else to prepare.
           kubectl create namespace oax-ci
           kubectl label namespace oax-ci pod-security.kubernetes.io/enforce=restricted
-          PW=$(openssl rand -hex 16)
-          kubectl -n oax-ci create secret generic oax-db --from-literal=password="$PW"
-          kubectl -n oax-ci create secret generic oax-run-token --from-literal=run-token-secret="$(openssl rand -hex 32)"
-          # Test database in its own namespace (the official image is not PodSecurity restricted).
-          kubectl create namespace oax-ci-db
-          kubectl -n oax-ci-db create deployment postgres --image=postgres:16-alpine --port=5432
-          kubectl -n oax-ci-db set env deployment/postgres POSTGRES_USER=openagentix_app POSTGRES_DB=openagentix POSTGRES_PASSWORD="$PW"
-          kubectl -n oax-ci-db expose deployment postgres --port=5432
-          kubectl -n oax-ci-db rollout status deployment/postgres --timeout=180s
       - name: ct install
         if: vars.OAX_IMAGES_PUBLISHED == 'true'
         run: ct install --config ct.yaml --all

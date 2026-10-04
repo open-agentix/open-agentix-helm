@@ -1,0 +1,24 @@
+{{- if and .Values.postgresql.enabled .Values.postgresql.backup.enabled (not .Values.postgresql.backup.persistence.existingClaim) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "postgresql-backup") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "postgresql-backup") | nindent 4 }}
+  annotations:
+    {{- if .Values.postgresql.backup.persistence.keep }}
+    helm.sh/resource-policy: keep
+    {{- end }}
+    {{- with .Values.commonAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  accessModes: [ReadWriteOnce]
+  {{- with .Values.postgresql.backup.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.postgresql.backup.persistence.size }}
+{{- end }}

@@ -1,0 +1,56 @@
+suite: bundled valkey
+templates:
+  - valkey/deployment.yaml
+  - valkey/service.yaml
+release:
+  name: rel
+  namespace: oax
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
+tests:
+  - it: is off by default
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: renders a hardened Deployment with a password and a Service
+    set:
+      valkey.enabled: true
+    asserts:
+      - isKind: { of: Deployment }
+        template: valkey/deployment.yaml
+      - matchRegex:
+          path: 'spec.template.spec.containers[0].image'
+          pattern: '^docker\.io/valkey/valkey:8\.0\.[0-9]+-alpine@sha256:[a-f0-9]{64}$'
+        template: valkey/deployment.yaml
+      - equal: { path: spec.template.spec.securityContext.runAsNonRoot, value: true }
+        template: valkey/deployment.yaml
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem', value: true }
+        template: valkey/deployment.yaml
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: VALKEY_PASSWORD
+            valueFrom: { secretKeyRef: { name: rel-open-agentix-generated, key: valkey-password } }
+        template: valkey/deployment.yaml
+      - matchRegex:
+          path: 'spec.template.spec.containers[0].command[2]'
+          pattern: '--requirepass'
+        template: valkey/deployment.yaml
+      - isKind: { of: Service }
+        template: valkey/service.yaml
+      - equal: { path: 'spec.ports[0].port', value: 6379 }
+        template: valkey/service.yaml
+
+  - it: reads the password from an existing Secret
+    set:
+      valkey.enabled: true
+      valkey.auth.existingSecret: oax-valkey
+      valkey.auth.key: pw
+    template: valkey/deployment.yaml
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: VALKEY_PASSWORD
+            valueFrom: { secretKeyRef: { name: oax-valkey, key: pw } }

@@ -1,7 +1,7 @@
 open-agentix {{ .Chart.AppVersion }} (chart {{ .Chart.Version }}) is deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
 
 Public URL: {{ include "open-agentix.publicUrl" . }}
-{{- if not .Values.ingress.enabled }}
+{{- if not (or .Values.ingress.enabled .Values.gateway.enabled) }}
 
 No ingress is configured. Reach the API locally with:
   kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "open-agentix.componentName" (list . "api") }} 8080:{{ .Values.api.service.port }}
@@ -31,16 +31,30 @@ WARNING: an OTLP endpoint is set but networkPolicy.egress.otel is empty - traces
 NOTE: database egress is limited by port ({{ .Values.networkPolicy.egress.databasePort }}) only; set networkPolicy.egress.database to restrict destinations.
 {{- end }}
 {{- end }}
-{{- if not .Values.audit.signingKey.existingSecret }}
+{{- if and (not .Values.audit.signingKey.existingSecret) (not .Values.audit.signingKey.generate) }}
 
-WARNING: audit.signingKey.existingSecret is empty - audit checkpoints are not signed.
+WARNING: audit checkpoints are not signed (audit.signingKey.generate=false and no existingSecret).
+{{- end }}
+{{- if .Values.demo.enabled }}
+
+DEMO MODE: the API is read-only and seeded with fake data. Sign in as admin@example.org with the shared
+demo password (demo.password). Do not store real data in this release.
+{{- else if and .Values.auth.bootstrapAdmin.enabled (not .Values.auth.bootstrapAdmin.existingSecret) }}
+
+Sign in as {{ .Values.auth.bootstrapAdmin.email }}; read the generated password with:
+  kubectl -n {{ .Release.Namespace }} get secret {{ include "open-agentix.generatedSecretName" . }} -o jsonpath='{.data.bootstrap-admin-password}' | base64 -d; echo
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+
+The bundled PostgreSQL is intended for evaluation, demos and homelabs. For production set
+postgresql.enabled=false and use externalDatabase (see docs/install.md).
+{{- end }}
+{{- if .Values.airgapped.enabled }}
+
+AIR-GAPPED: OAX_AIRGAPPED=true, imagePullPolicy={{ .Values.airgapped.pullPolicy }}{{ with .Values.airgapped.registry }}, registry {{ . }}{{ end }}.
 {{- end }}
 {{- if .Values.worker.demoMcp }}
 
 WARNING: worker.demoMcp=true registers the built-in demo MCP servers. Do not use in production.
 {{- end }}
-{{- if and .Values.postgresql.enabled .Values.migrations.enabled (not .Values.migrations.hookEvents) }}
 
-NOTE: with the bundled PostgreSQL the migrations Job runs post-install. Do not use `helm install --wait`
-on the first install; the API becomes ready once the Job has finished.
-{{- end }}

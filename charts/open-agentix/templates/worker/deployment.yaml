@@ -43,7 +43,7 @@ spec:
       containers:
         - name: worker
           image: {{ include "open-agentix.image" (list . "worker") | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ include "open-agentix.pullPolicy" . }}
           command: ["node", "dist/main.js"]
           env:
             {{- include "open-agentix.env.common" (list . "worker") | nindent 12 }}

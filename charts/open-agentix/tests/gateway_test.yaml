@@ -1,0 +1,52 @@
+suite: gateway api
+templates:
+  - gateway/httproute.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
+tests:
+  - it: is off by default
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: routes the API paths and, with the UI, everything else to the UI
+    set:
+      gateway.enabled: true
+      ui.enabled: true
+      gateway.hostnames: [agents.example.com]
+      gateway.parentRefs: [{ name: gw, namespace: gateways }]
+    asserts:
+      - isKind: { of: HTTPRoute }
+      - equal: { path: spec.hostnames, value: [agents.example.com] }
+      - equal: { path: spec.parentRefs, value: [{ name: gw, namespace: gateways }] }
+      - equal: { path: 'spec.rules[0].matches[0].path.value', value: /v1 }
+      - equal: { path: 'spec.rules[0].backendRefs[0].name', value: rel-open-agentix-api }
+      - equal: { path: 'spec.rules[1].backendRefs[0].name', value: rel-open-agentix-ui }
+
+  - it: routes everything to the API without the UI and falls back to ingress.host
+    set:
+      gateway.enabled: true
+      gateway.parentRefs: [{ name: gw }]
+    asserts:
+      - equal: { path: spec.hostnames, value: [openagentix.example.com] }
+      - equal: { path: 'spec.rules[0].backendRefs[0].name', value: rel-open-agentix-api }
+      - lengthEqual: { path: spec.rules, count: 1 }
+
+  - it: requires parentRefs
+    set:
+      gateway.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "gateway.enabled requires gateway.parentRefs" }
+
+  - it: is mutually exclusive with the Ingress
+    set:
+      gateway.enabled: true
+      gateway.parentRefs: [{ name: gw }]
+      ingress.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "mutually exclusive" }

@@ -1,6 +1,8 @@
 # Amazon EKS: IRSA for Bedrock, AWS Load Balancer Controller (ALB), Bedrock through a VPC
 # interface endpoint, Amazon RDS for PostgreSQL, ElastiCache (Valkey), OIDC login and
 # Prometheus Operator. Replace every <...> placeholder. See docs/eks.md.
+# Secrets (oax-db, oax-db-migrator, oax-cache, oax-oidc, ...) come from External Secrets or
+# `kubectl create secret`; the run token and the audit key may also be left to the chart.
 image:
   api:
     tag: "0.1.0"
@@ -19,6 +21,10 @@ config:
       model: "anthropic.claude-*"
       inputPerMTok: 3
       outputPerMTok: 15
+
+# Production: no bundled database.
+postgresql:
+  enabled: false
 
 externalDatabase:
   host: openagentix.cluster-abcdefghijkl.eu-central-1.rds.amazonaws.com

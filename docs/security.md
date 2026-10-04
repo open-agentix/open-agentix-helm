@@ -7,9 +7,15 @@ something off is an explicit, reviewable values change.
 ## Secrets
 
 - No secret is ever read from `values.yaml`. Every secret is referenced by Secret name + key:
-  database (`externalDatabase.existingSecret`), run-token HMAC key (`runToken.existingSecret`,
-  required), audit checkpoint Ed25519 key (`audit.signingKey.existingSecret`), OIDC client secret,
+  database (`externalDatabase.existingSecret`), run-token HMAC key (`runToken.existingSecret`),
+  audit checkpoint Ed25519 key (`audit.signingKey.existingSecret`), OIDC client secret,
   LDAP bind password, bootstrap admin password, `/metrics` token, cache URL with password.
+- **Generated credentials:** when a reference is left empty the chart generates the credential once
+  (random 40 characters, Ed25519 key via `genPrivateKey`), stores it in the Secret
+  `<release>-open-agentix-generated` and reads it back with `lookup` on upgrades, so it never
+  changes and never appears in values or in Git. The Secret is kept on uninstall. GitOps tools that
+  render without cluster access (Argo CD) must use `existingSecret` references instead, see
+  [install.md](install.md#how-the-generated-secrets-work).
 - Secrets used by agents (provider API keys, webhook signing secrets, MCP credentials) are
   references by name in the platform. Provide them with `secrets.files` (Secrets projected as
   read-only files into `OAX_SECRETS_DIR`, preferred) or `secrets.env` (`OAX_SECRET_<NAME>` keys).
@@ -25,7 +31,8 @@ something off is an explicit, reviewable values change.
 All pods satisfy the PodSecurity `restricted` profile (label your namespace
 `pod-security.kubernetes.io/enforce=restricted`):
 
-- `runAsNonRoot`, uid/gid 1000 (`node` in the platform images; 101 for the nginx UI),
+- `runAsNonRoot`, uid/gid 1000 (`node` in the platform images; 101 for the nginx UI, 70 for the
+  bundled PostgreSQL, 999 for the bundled Valkey),
 - `readOnlyRootFilesystem: true`, `/tmp` is a size-limited `emptyDir`,
 - `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`, seccomp `RuntimeDefault`,
 - `automountServiceAccountToken: false` on every pod (the worker gets a token only when the v0.2
@@ -33,8 +40,10 @@ All pods satisfy the PodSecurity `restricted` profile (label your namespace
 - the schema rejects `allowPrivilegeEscalation: true`, `runAsNonRoot: false` and added
   capabilities.
 
-The bundled PostgreSQL/Valkey subcharts get seccomp `RuntimeDefault` added so they pass
-`restricted` as well.
+The bundled PostgreSQL (StatefulSet, PVC) and Valkey are templates of this chart and follow the
+same rules: official images pinned by digest, read-only root file system (`emptyDir` for `/tmp` and
+the PostgreSQL socket directory), resource limits and probes. The PostgreSQL init script creates a
+separate owner role (migrations) and a least-privilege application role.
 
 ## Network
 
@@ -47,6 +56,9 @@ The bundled PostgreSQL/Valkey subcharts get seccomp `RuntimeDefault` added so th
 | worker | none | DNS, database, cache, API, OTLP, model providers (`egress.providers`), MCP servers (`egress.mcp`), event sources (`egress.eventSources`), Kubernetes API (v0.2) |
 | ui | ingress controller | none |
 | migrations | none | DNS, database |
+| bundled PostgreSQL | api, worker, migrations, backup job on 5432 | none |
+| bundled Valkey | api, worker on 6379 | none |
+| PostgreSQL backup job | none | DNS, bundled PostgreSQL |
 | run Jobs (v0.2, runs namespace) | none | DNS, API |
 
 This mirrors the platform's non-negotiable "no outbound calls except configured providers, MCP
@@ -73,8 +85,8 @@ Bedrock or OTLP is enabled without a matching egress rule.
 ## Supply chain
 
 - Images can be pinned by digest (`image.*.digest`); air-gapped installs should mirror and pin.
-- Chart dependencies are pinned by version and their archive SHA-256 is verified in CI
-  (`dependency-digests.txt`). GitHub Actions are pinned by commit SHA.
+- The chart has no sub-chart dependencies; the bundled PostgreSQL and Valkey are templates of this
+  chart using the official images pinned by digest. GitHub Actions are pinned by commit SHA.
 - Signing the chart with cosign and publishing it as an OCI artifact is on the roadmap.
 
 Report vulnerabilities privately, see [SECURITY.md](../SECURITY.md).

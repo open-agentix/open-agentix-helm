@@ -29,9 +29,6 @@ run python3 scripts/coverage.py "$CHART" --min 80 >/dev/null && ran+=("coverage"
   python3 scripts/coverage.py "$CHART" | tail -1
 
 if command -v helm >/dev/null; then
-  if ! ls "$CHART"/charts/*.tgz >/dev/null 2>&1; then
-    skipped+=("bundled-subchart cases: run 'helm dependency build $CHART' (needs network) first")
-  fi
   step "helm lint"
   for f in examples/*.yaml "$CHART"/ci/*.yaml; do
     run helm lint "$CHART" --strict -f "$f" --quiet || echo "lint failed: $f"

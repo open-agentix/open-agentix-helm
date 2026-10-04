@@ -5,7 +5,7 @@ kind: Namespace
 metadata:
   name: openagentix-runs
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: runner
@@ -25,7 +25,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -127,7 +127,7 @@ metadata:
   name: oax-open-agentix-default-deny
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/version: "0.1.0"
@@ -150,7 +150,7 @@ metadata:
   name: oax-open-agentix-migrations
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: migrations
@@ -195,7 +195,7 @@ metadata:
   name: oax-open-agentix-ui
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
@@ -229,7 +229,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -329,7 +329,7 @@ metadata:
   name: oax-open-agentix-runner
   namespace: openagentix-runs
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: runner
@@ -374,7 +374,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -397,7 +397,7 @@ metadata:
   name: oax-open-agentix-ui
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
@@ -420,7 +420,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -444,7 +444,7 @@ metadata:
   name: openagentix-run
   namespace: openagentix-runs
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: runner
@@ -463,7 +463,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -480,7 +480,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -501,7 +501,7 @@ metadata:
   name: oax-open-agentix-runner
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: runner
@@ -570,7 +570,7 @@ metadata:
   name: oax-open-agentix-runner
   namespace: openagentix-runs
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: runner
@@ -599,7 +599,7 @@ metadata:
   name: oax-open-agentix-runner
   namespace: openagentix-runs
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: runner
@@ -623,7 +623,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -650,7 +650,7 @@ metadata:
   name: oax-open-agentix-ui
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
@@ -677,7 +677,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -703,7 +703,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.1.1
+        helm.sh/chart: open-agentix-0.2.0
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: api
@@ -789,7 +789,7 @@ spec:
             - name: OAX_TRUST_PROXY
               value: "true"
             - name: OAX_BODY_LIMIT_BYTES
-              value: "1.048576e+06"
+              value: "1048576"
             - name: OAX_CACHE_MAX_ENTRIES
               value: "10000"
             - name: OAX_AUTH_CACHE_TTL_SECONDS
@@ -807,7 +807,8 @@ spec:
             - name: OAX_BOOTSTRAP_ADMIN_EMAIL
               value: "admin@example.com"
             - name: OAX_BOOTSTRAP_ADMIN_PASSWORD
-              valueFrom: { secretKeyRef: { name: "oax-admin", key: "password" } }
+              valueFrom:
+                secretKeyRef: { name: "oax-admin", key: "password" }
             - name: OAX_OIDC_ISSUER
               value: "https://keycloak.example.com/realms/oax"
             - name: OAX_OIDC_CLIENT_ID
@@ -839,7 +840,8 @@ spec:
             - name: OAX_LDAP_BIND_PASSWORD
               valueFrom: { secretKeyRef: { name: "oax-ldap", key: "bind-password" } }
             - name: OAX_AUDIT_SIGNING_KEY
-              valueFrom: { secretKeyRef: { name: "oax-audit", key: "ed25519.pem" } }
+              valueFrom:
+                secretKeyRef: { name: "oax-audit", key: "ed25519.pem" }
             - name: OAX_AUDIT_SIGNING_KEY_ID
               value: "k1"
             - name: OAX_AUDIT_PUBLIC_KEYS
@@ -847,7 +849,8 @@ spec:
             - name: OAX_AUDIT_CHECKPOINT_EVERY
               value: "1000"
             - name: OAX_RUN_TOKEN_SECRET
-              valueFrom: { secretKeyRef: { name: "oax-run-token", key: "run-token-secret" } }
+              valueFrom:
+                secretKeyRef: { name: "oax-run-token", key: "run-token-secret" }
             - name: OAX_RUN_TOKEN_TTL_SECONDS
               value: "14400"
             - name: OAX_PROVIDERS
@@ -863,7 +866,7 @@ spec:
             - name: OAX_WEBHOOK_TOLERANCE_SECONDS
               value: "300"
             - name: OAX_WEBHOOK_MAX_BYTES
-              value: "1.048576e+06"
+              value: "1048576"
             - name: OAX_SSE_POLL_MS
               value: "500"
             - name: OAX_METRICS_TOKEN
@@ -955,7 +958,7 @@ metadata:
   name: oax-open-agentix-ui
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
@@ -977,7 +980,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.1.1
+        helm.sh/chart: open-agentix-0.2.0
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: ui
@@ -1059,7 +1062,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -1085,7 +1088,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.1.1
+        helm.sh/chart: open-agentix-0.2.0
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: worker
@@ -1153,7 +1156,7 @@ spec:
             - name: OAX_TRUST_PROXY
               value: "true"
             - name: OAX_BODY_LIMIT_BYTES
-              value: "1.048576e+06"
+              value: "1048576"
             - name: OAX_CACHE_MAX_ENTRIES
               value: "10000"
             - name: OAX_AUTH_CACHE_TTL_SECONDS
@@ -1171,7 +1174,8 @@ spec:
             - name: OAX_BOOTSTRAP_ADMIN_EMAIL
               value: "admin@example.com"
             - name: OAX_BOOTSTRAP_ADMIN_PASSWORD
-              valueFrom: { secretKeyRef: { name: "oax-admin", key: "password" } }
+              valueFrom:
+                secretKeyRef: { name: "oax-admin", key: "password" }
             - name: OAX_OIDC_ISSUER
               value: "https://keycloak.example.com/realms/oax"
             - name: OAX_OIDC_CLIENT_ID
@@ -1203,7 +1207,8 @@ spec:
             - name: OAX_LDAP_BIND_PASSWORD
               valueFrom: { secretKeyRef: { name: "oax-ldap", key: "bind-password" } }
             - name: OAX_AUDIT_SIGNING_KEY
-              valueFrom: { secretKeyRef: { name: "oax-audit", key: "ed25519.pem" } }
+              valueFrom:
+                secretKeyRef: { name: "oax-audit", key: "ed25519.pem" }
             - name: OAX_AUDIT_SIGNING_KEY_ID
               value: "k1"
             - name: OAX_AUDIT_PUBLIC_KEYS
@@ -1211,7 +1216,8 @@ spec:
             - name: OAX_AUDIT_CHECKPOINT_EVERY
               value: "1000"
             - name: OAX_RUN_TOKEN_SECRET
-              valueFrom: { secretKeyRef: { name: "oax-run-token", key: "run-token-secret" } }
+              valueFrom:
+                secretKeyRef: { name: "oax-run-token", key: "run-token-secret" }
             - name: OAX_RUN_TOKEN_TTL_SECONDS
               value: "14400"
             - name: OAX_PROVIDERS
@@ -1227,7 +1233,7 @@ spec:
             - name: OAX_WEBHOOK_TOLERANCE_SECONDS
               value: "300"
             - name: OAX_WEBHOOK_MAX_BYTES
-              value: "1.048576e+06"
+              value: "1048576"
             - name: OAX_SSE_POLL_MS
               value: "500"
             - name: OAX_WORKER_CONCURRENCY
@@ -1312,7 +1318,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -1348,7 +1354,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -1378,7 +1384,7 @@ metadata:
   name: oax-open-agentix
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/version: "0.1.0"
@@ -1427,7 +1433,7 @@ metadata:
   name: oax-open-agentix
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/version: "0.1.0"
@@ -1481,7 +1487,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -1517,7 +1523,7 @@ metadata:
   name: oax-open-agentix-migrations
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.1.1
+    helm.sh/chart: open-agentix-0.2.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: migrations
@@ -1537,7 +1543,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.1.1
+        helm.sh/chart: open-agentix-0.2.0
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: migrations
@@ -1579,7 +1585,8 @@ spec:
             - name: OAX_DATABASE_URL
               valueFrom: { secretKeyRef: { name: "oax-db-migrator", key: "url" } }
             - name: OAX_RUN_TOKEN_SECRET
-              valueFrom: { secretKeyRef: { name: "oax-run-token", key: "run-token-secret" } }
+              valueFrom:
+                secretKeyRef: { name: "oax-run-token", key: "run-token-secret" }
             - name: OAX_RUN_TOKEN_TTL_SECONDS
               value: "14400"
           securityContext:

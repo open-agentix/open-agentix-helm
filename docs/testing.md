@@ -10,6 +10,7 @@
 | Golden files | `scripts/golden.sh` (`helm template` per render case vs `tests/golden/`) | with helm | yes |
 | Schema validation of manifests | `scripts/kubeconform.sh` (pinned schema commits, strict) | with kubeconform | yes |
 | chart-testing | `ct lint`; `ct install` on kind | – | lint always; install once images are published |
+| End-to-end install on kind | `scripts/kind-install-test.sh` (default install, login, least privilege, backup, upgrade, uninstall/reinstall, demo, air-gapped) | with docker, kind, kubectl, helm | – (needs the platform images) |
 | README values table | `scripts/values-table.py --check` | yes | yes |
 
 Run everything that is available locally:
@@ -19,7 +20,8 @@ scripts/test-local.sh
 ```
 
 The script never downloads tools. Install pinned versions yourself (see the `env` block of
-`.github/workflows/ci.yaml`): Helm, the helm-unittest plugin and kubeconform.
+`.github/workflows/ci.yaml`): Helm, the helm-unittest plugin and kubeconform. The chart has no
+dependencies, so no `helm dependency build` is needed.
 
 ## Render cases
 
@@ -28,7 +30,11 @@ Golden files and kubeconform use the same render cases:
 - `examples/values-*.yaml` – documented scenarios,
 - `charts/open-agentix/ci/*-values.yaml` – chart-testing install values,
 - `tests/values/full.yaml` – every optional feature on,
-- `tests/values/bundled.yaml` – bundled PostgreSQL and Valkey.
+- `tests/values/bundled.yaml` – bundled PostgreSQL (with backups) and Valkey,
+- `tests/values/gateway.yaml` – Gateway API HTTPRoute with an external database.
+
+Generated credentials are random under `helm template` (`lookup` is empty); `scripts/render.sh`
+masks them (`<generated>`) so the golden files stay deterministic.
 
 ## Coverage
 

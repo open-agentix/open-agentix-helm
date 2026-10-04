@@ -40,7 +40,7 @@ spec:
       containers:
         - name: migrations
           image: {{ include "open-agentix.image" (list . "api") | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ include "open-agentix.pullPolicy" . }}
           command: ["node", "dist/migrate-cli.js"]
           env:
             - name: NODE_ENV

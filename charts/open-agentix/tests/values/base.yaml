@@ -1,4 +1,15 @@
-# Smallest valid configuration used by most unit tests.
+# Smallest valid configuration with an external database; used by most unit tests. The
+# bundled-by-default behaviour has its own suites (bundled_*_test.yaml) that use values/bundled.yaml.
+postgresql:
+  enabled: false
+auth:
+  bootstrapAdmin:
+    enabled: false
+audit:
+  signingKey:
+    generate: false
+ui:
+  enabled: false
 runToken:
   existingSecret: oax-run-token
 externalDatabase:

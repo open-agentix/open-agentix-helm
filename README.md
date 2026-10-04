@@ -10,103 +10,88 @@ Helm chart for [open-agentix](https://github.com/open-agentix/open-agentix), the
 self-hostable agent platform: events come in, agents act on them through MCP tools and APIs, and
 every step is policy-checked, audited and cost-tracked.
 
-agentix-zero is the project's agent account; humans review and own every decision (maintainer:
-the project lead). See [GOVERNANCE.md](GOVERNANCE.md).
+agentix-zero is the project's agent account; humans review and own every decision. See
+[GOVERNANCE.md](GOVERNANCE.md).
 
 | Chart | Version | App version | Path |
 | --- | --- | --- | --- |
-| `open-agentix` | 0.1.0 | 0.1.0 | [`charts/open-agentix`](charts/open-agentix) |
+| `open-agentix` | 0.2.0 | 0.1.0 | [`charts/open-agentix`](charts/open-agentix) |
+
+## One command
+
+```bash
+helm install oax ./charts/open-agentix -n openagentix --create-namespace
+```
+
+That installs a complete working stack without any other chart, operator or prepared Secret: API,
+worker, UI, a hardened PostgreSQL with a PVC, the migrations Job, generated credentials and
+default-deny NetworkPolicies. See [docs/install.md](docs/install.md) for sign-in, production
+settings and uninstall.
 
 ## What gets deployed
 
 ```
-                    Ingress (nginx / AWS ALB)
+                    Ingress (nginx / ALB) or Gateway API HTTPRoute
                      |                 |
-              /v1, /openapi.json       /   (optional)
+              /v1, /openapi.json       /
                      |                 |
-   control node:   api (Deployment, HPA, PDB)      ui (nginx-unprivileged, optional)
+   control node:   api (Deployment, HPA, PDB)      ui (nginx-unprivileged)
                      |
    data plane:     worker (Deployment, HPA)  -- in-process runner (MVP)
                      |                           Kubernetes Job runner prepared for v0.2
-   hooks:          migrations Job (pre-install / pre-upgrade)
-                     |
-   data:           PostgreSQL 16+ (external by default, bundled optional)
-                   Valkey/Redis cache (optional, external by default)
+   hooks:          migrations Job (post-install / pre-upgrade with the bundled DB,
+                     |             pre-install / pre-upgrade with an external DB)
+   data:           PostgreSQL 16 (bundled StatefulSet + PVC + optional backup CronJob,
+                                  or external: RDS, CloudNativePG, ...)
+                   Valkey cache (optional, bundled or external)
 ```
 
 Hardened by default:
 
-- PodSecurity `restricted`: non-root (uid 1000), read-only root file system, all capabilities
-  dropped, no privilege escalation, seccomp `RuntimeDefault`, no ServiceAccount token mounted.
+- PodSecurity `restricted` for every pod, including PostgreSQL and Valkey: non-root, read-only root
+  file system, all capabilities dropped, no privilege escalation, seccomp `RuntimeDefault`, no
+  ServiceAccount token mounted.
 - NetworkPolicies: default deny for every pod of the release, explicit egress only to DNS, the
-  database, the cache and the providers / MCP servers / event sources you list.
-- No secret in values: every secret (database, run-token key, audit signing key, OIDC client
-  secret, LDAP bind password, admin password, metrics token, provider keys) comes from an
-  existing Kubernetes Secret. The schema rejects plaintext provider keys.
+  database, the cache and the providers / MCP servers / event sources you list; the bundled
+  PostgreSQL and Valkey accept connections only from the chart's own pods and have no egress.
+- No secret in values: credentials are generated once by the chart (random, kept via `lookup`,
+  kept on uninstall) or referenced from existing Kubernetes Secrets (`existingSecret`).
 - Strict `values.schema.json`: unknown keys and insecure security contexts fail at install time.
+- Modes: `demo.enabled` (read-only public demo), `airgapped.enabled` (no pulls, no internet egress,
+  private registry), `postgresql.enabled=false` for a managed database.
 
 ## Requirements
 
 - Kubernetes >= 1.27 (tested in CI against 1.34 schemas), Helm >= 3.14.
-- PostgreSQL 16 or newer (external) — or `postgresql.enabled=true` for tests and homelabs.
+- Nothing else: PostgreSQL is bundled. For production use PostgreSQL 16 or newer as an external service.
+- A StorageClass (default class) for the PostgreSQL volume.
 - A CNI that enforces NetworkPolicies (Calico, Cilium, AWS VPC CNI with network policy agent, ...). Without it the policies are inert.
 - Prometheus Operator CRDs only if `observability.serviceMonitor/prometheusRule.enabled`.
 
 ## Install
 
-### 1. Prepare secrets
-
-Nothing secret goes into values. Create the Secrets first (names are examples):
-
 ```bash
-kubectl create namespace openagentix
-kubectl label namespace openagentix pod-security.kubernetes.io/enforce=restricted
-
-# Database password of the application role (URL-safe characters only) - or a full URL, see urlKey
-kubectl -n openagentix create secret generic oax-db --from-literal=password="$(openssl rand -hex 24)"
-
-# HMAC key for run tokens between control node and workers (>= 32 characters)
-kubectl -n openagentix create secret generic oax-run-token --from-literal=run-token-secret="$(openssl rand -hex 32)"
-
-# Ed25519 key that signs audit checkpoints (recommended)
-openssl genpkey -algorithm ed25519 -out ed25519.pem
-kubectl -n openagentix create secret generic oax-audit-signing-key --from-file=ed25519.pem && shred -u ed25519.pem
-
-# Optional: local bootstrap admin (>= 12 characters)
-kubectl -n openagentix create secret generic oax-admin --from-literal=password="$(openssl rand -base64 18)"
+helm install oax ./charts/open-agentix -n openagentix --create-namespace       # everything included
+helm install oax ./charts/open-agentix -n openagentix -f examples/values-eks.yaml   # a preset
 ```
 
-Prepare the database roles once with
-[`deploy/sql/roles.sql`](https://github.com/open-agentix/open-agentix/blob/main/deploy/sql/roles.sql)
-of the platform (application role `openagentix_app` without UPDATE/DELETE on the audit tables,
-owner role `openagentix_migrator` for the migrations Job).
+OCI publishing is on the [roadmap](ROADMAP.md); until then install from a checkout. Nothing is
+downloaded: the chart has no sub-chart dependencies.
 
-### 2. Install the chart
-
-From a checkout of this repository (OCI publishing is on the [roadmap](ROADMAP.md)):
-
-```bash
-helm dependency build charts/open-agentix      # only needed for the bundled PostgreSQL/Valkey
-helm install oax charts/open-agentix -n openagentix -f examples/values-minimal.yaml
-kubectl -n openagentix get pods
-```
-
-Example values:
+Presets:
 
 | File | Scenario |
 | --- | --- |
-| [`examples/values-minimal.yaml`](examples/values-minimal.yaml) | external PostgreSQL, local admin, simulated provider, no ingress |
+| [`examples/values-minimal.yaml`](examples/values-minimal.yaml) | defaults: bundled PostgreSQL, generated secrets, simulated provider |
+| [`examples/values-demo.yaml`](examples/values-demo.yaml) | public read-only demo with seeded fake data ([docs/demo.md](docs/demo.md)) |
+| [`examples/values-airgapped.yaml`](examples/values-airgapped.yaml) | offline cluster: private registry, no internet egress, Ollama in-cluster, LDAP ([docs/airgapped.md](docs/airgapped.md)) |
 | [`examples/values-eks.yaml`](examples/values-eks.yaml) | Amazon EKS: IRSA, ALB, Bedrock VPC endpoint, RDS, ElastiCache, OIDC, Prometheus Operator |
-| [`examples/values-airgapped.yaml`](examples/values-airgapped.yaml) | no internet egress, internal registry with digests, Ollama in-cluster, LDAP |
-| [`examples/values-homelab.yaml`](examples/values-homelab.yaml) | single node, external PostgreSQL on the LAN, nginx + cert-manager |
+| [`examples/values-homelab.yaml`](examples/values-homelab.yaml) | single node, bundled PostgreSQL with backups, nginx + cert-manager |
 
-`helm dependency build` downloads the two optional subcharts (pinned versions, see
-`charts/open-agentix/Chart.yaml`) from the groundhog2k chart repository; verify them with
-`(cd charts/open-agentix && sha256sum -c dependency-digests.txt)`. Nothing is vendored in this
-repository. Helm refuses to render the chart until the dependencies are built, even when both
-are disabled.
+Production: use an external PostgreSQL (`postgresql.enabled=false`), keep secrets in your secret
+manager and reference them with `existingSecret` ([docs/install.md](docs/install.md)).
 
-### 3. Upgrade
+### Upgrade
 
 ```bash
 helm upgrade oax charts/open-agentix -n openagentix -f my-values.yaml
@@ -122,9 +107,8 @@ compatibility rules: [docs/upgrades.md](docs/upgrades.md).
 helm uninstall oax -n openagentix
 ```
 
-Secrets you created and the database are left untouched. With the bundled PostgreSQL the
-PersistentVolumeClaim is kept (`postgresql.storage.keepPvc: true`); delete it yourself when the
-data is no longer needed.
+The database volume (bundled PostgreSQL), the backup volume and the generated Secret are kept on
+purpose; [docs/install.md](docs/install.md#uninstall) lists the commands to delete them.
 
 ## Configuration
 
@@ -137,18 +121,22 @@ Most used settings:
 | Topic | Values |
 | --- | --- |
 | Images | `image.registry`, `image.{api,worker,ui}.{repository,tag,digest}`, `image.pullSecrets` |
-| Database | `externalDatabase.*` (`existingSecret`, `urlKey`, `migrations.*`) or `postgresql.enabled` |
-| Cache | `cache.enabled` + `cache.existingSecret`/`cache.url`, or `valkey.enabled` |
+| Database | bundled: `postgresql.*` (`persistence`, `backup`, `auth.existingSecret`); external: `postgresql.enabled=false` + `externalDatabase.*` |
+| Cache | `valkey.enabled`, or `cache.enabled` + `cache.existingSecret`/`cache.url` |
 | Auth | `auth.oidc.*`, `auth.ldap.*`, `auth.bootstrapAdmin.*` (all secrets via `existingSecret`) |
-| Keys | `runToken.existingSecret` (required), `audit.signingKey.existingSecret` |
+| Keys | `runToken.existingSecret`, `audit.signingKey.existingSecret` (both generated when empty) |
 | Providers | `config.providers` (JSON list), `secrets.files` / `secrets.env` for API keys, `aws.bedrock.*` |
 | Scaling | `api.autoscaling.*`, `worker.autoscaling.*`, `worker.concurrency`, `*.pdb.*`, `defaultTopologySpread` |
-| Network | `networkPolicy.*`, `ingress.*`, `proxy.*` |
+| Network | `networkPolicy.*`, `ingress.*` or `gateway.*`, `proxy.*` |
+| Modes | `demo.enabled`, `airgapped.{enabled,registry,pullPolicy,pullSecrets}` |
 | Observability | `observability.serviceMonitor.*`, `observability.prometheusRule.*`, `observability.otel.endpoint` |
 | v0.2 preparation | `runners.kubernetesJob.*`, `runners.toolboxes.allowlist` (disabled) |
 
 ## Documentation
 
+- [docs/install.md](docs/install.md) – install, generated secrets, production, Gateway API, uninstall
+- [docs/demo.md](docs/demo.md) – read-only public demo
+- [docs/airgapped.md](docs/airgapped.md) – offline bundle and air-gapped values
 - [docs/eks.md](docs/eks.md) – Amazon EKS: IRSA for Bedrock, VPC endpoints, ALB, RDS
 - [docs/security.md](docs/security.md) – security model of the chart
 - [docs/upgrades.md](docs/upgrades.md) – upgrades, migrations, rollback, versioning

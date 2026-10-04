@@ -10,5 +10,4 @@
 *~
 tests/
 ci/
-dependency-digests.txt
 README.md.gotmpl
