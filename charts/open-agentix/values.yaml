@@ -19,8 +19,33 @@ global: {}
 # `topologySpreadConstraints` list is empty.
 defaultTopologySpread: true
 
+# Public read-only demo (see values-demo.yaml and docs/demo.md).
+demo:
+  # -- Enable demo mode: `OAX_DEMO_MODE=true` (the platform seeds its deterministic data set on
+  # first start and the API becomes read-only except sign-in and side-effect-free checks), the
+  # simulated provider only, the built-in demo MCP servers on the worker and no bootstrap admin.
+  # Incompatible with real providers, Bedrock, OIDC and LDAP.
+  enabled: false
+  # -- `OAX_DEMO_PASSWORD`: shared password of the fake demo users (`admin@example.org`, ...).
+  # Not a secret.
+  password: demo-password-2026
+
+# Air-gapped / offline clusters (see values-airgapped.yaml and docs/airgapped.md).
+airgapped:
+  # -- Set `OAX_AIRGAPPED=true`, never pull images (`pullPolicy`), require NetworkPolicies and
+  # reject any egress rule that opens the internet (`0.0.0.0/0`, `::/0`) or an outbound proxy.
+  enabled: false
+  # -- Private registry that replaces the registry of every image of the chart (platform images,
+  # PostgreSQL, Valkey). Mirror the images with the same repository paths.
+  registry: ""
+  # -- Image pull policy applied to every image while `airgapped.enabled` (`IfNotPresent` uses
+  # images preloaded on the nodes; `Always` pulls from the private registry).
+  pullPolicy: IfNotPresent
+  # -- Additional image pull secrets (merged with `image.pullSecrets`).
+  pullSecrets: []
+
 image:
-  # -- Registry of the platform images.
+  # -- Registry of the platform images (overridden by `airgapped.registry`).
   registry: ghcr.io
   # -- Image pull policy for all platform images.
   pullPolicy: IfNotPresent
@@ -107,7 +132,7 @@ config:
   # -- Extra environment variables for api, worker and migrations (list of EnvVar).
   extraEnv: []
 
-# Database. Default: external PostgreSQL 16+.
+# External PostgreSQL 16+ (RDS, CloudNativePG, ...). Used when `postgresql.enabled=false`.
 externalDatabase:
   # -- Host name of the external PostgreSQL.
   host: ""
@@ -135,44 +160,101 @@ externalDatabase:
     # -- Key with a complete URL for the migration role.
     urlKey: ""
 
-# Bundled PostgreSQL (groundhog2k/postgres, official postgres image). For tests and homelabs.
+# Bundled PostgreSQL: a hardened single-instance StatefulSet shipped with the chart (official
+# postgres image pinned by digest, non-root, read-only root file system, PVC, probes, resource
+# limits, NetworkPolicy). Enabled by default so that one `helm install` gives a working stack.
+# For production set `postgresql.enabled=false` and use `externalDatabase` (RDS, CloudNativePG, ...).
 postgresql:
-  # -- Deploy the bundled PostgreSQL instead of using `externalDatabase`.
-  enabled: false
+  # -- Deploy the bundled PostgreSQL. Set to false to use `externalDatabase`.
+  enabled: true
   image:
-    # -- PostgreSQL image tag (major 16 like the platform's reference setup).
-    tag: "16.10-alpine"
-  userDatabase:
-    # -- Existing Secret with keys `database`, `user`, `password` (create it before install).
+    # -- Registry (overridden by `airgapped.registry`).
+    registry: docker.io
+    # -- Repository.
+    repository: library/postgres
+    # -- Tag (major 16 like the platform's reference setup).
+    tag: "16.15-alpine"
+    # -- Digest of the multi-arch index (`sha256:...`). Pins the image; empty = tag only.
+    digest: sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+  auth:
+    # -- Existing Secret with the passwords (keys below). Empty = the chart generates them once
+    # (random, kept across upgrades via `lookup`) in the Secret `<fullname>-generated`.
     existingSecret: ""
-    name:
-      # -- Key of the database name.
-      secretKey: database
-    user:
-      # -- Key of the user name.
-      secretKey: user
-    password:
-      # -- Key of the password (URL-safe).
-      secretKey: password
-  settings:
-    # -- Existing Secret with the superuser password (key `superuser-password`).
-    existingSecret: ""
-    superuserPassword:
-      # -- Key of the superuser password.
-      secretKey: superuser-password
-  storage:
+    # -- Database name.
+    database: openagentix
+    # -- Owner role used by the migrations Job (creates and alters the schema).
+    migratorUser: openagentix_migrator
+    # -- Least-privilege role used by api and worker (no DDL).
+    appUser: openagentix_app
+    keys:
+      # -- Key of the superuser (`postgres`) password. Must be URL-safe.
+      postgres: postgres-password
+      # -- Key of the application role password. Must be URL-safe.
+      app: app-password
+      # -- Key of the migrator role password. Must be URL-safe.
+      migrator: migrator-password
+  persistence:
+    # -- Persist the data directory on a PVC (false = emptyDir, data is lost with the pod).
+    enabled: true
     # -- Size of the data volume.
-    requestedSize: 8Gi
+    size: 8Gi
     # -- StorageClass (empty = cluster default).
-    className: ""
-    # -- Keep the data PVC on `helm uninstall`.
-    keepPvc: true
-  # -- Adds seccomp RuntimeDefault so the pod passes PodSecurity `restricted`.
-  podSecurityContext:
-    seccompProfile: { type: RuntimeDefault }
-  # -- Container seccomp profile (merged with the subchart's restricted defaults).
-  securityContext:
-    seccompProfile: { type: RuntimeDefault }
+    storageClass: ""
+    # -- Access modes.
+    accessModes: [ReadWriteOnce]
+    # -- Keep the data PVC when the release or the StatefulSet is deleted (retention policy `Retain`).
+    keep: true
+  # -- Extra `postgresql.conf` settings passed as `-c key=value` (e.g. `max_connections: "200"`).
+  config:
+    max_connections: "200"
+  # -- Resources.
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+    limits: { memory: 1Gi }
+  # -- UID/GID of the `postgres` user in the alpine image.
+  runAsUser: 70
+  # -- Termination grace period (clean shutdown checkpoint).
+  terminationGracePeriodSeconds: 60
+  # -- Pod annotations.
+  podAnnotations: {}
+  # -- Node selector.
+  nodeSelector: {}
+  # -- Tolerations.
+  tolerations: []
+  # -- Affinity.
+  affinity: {}
+  # -- Priority class.
+  priorityClassName: ""
+  # -- Service annotations.
+  serviceAnnotations: {}
+  backup:
+    # -- Create a CronJob that writes `pg_dump -Fc` archives to a PVC.
+    enabled: false
+    # -- Cron schedule.
+    schedule: "17 2 * * *"
+    # -- Delete archives older than this many days (0 = keep all).
+    retentionDays: 14
+    # -- Time zone of the schedule (empty = the cluster's).
+    timeZone: ""
+    persistence:
+      # -- Use an existing PVC for the archives (empty = the chart creates one).
+      existingClaim: ""
+      # -- Size of the backup volume.
+      size: 10Gi
+      # -- StorageClass (empty = cluster default).
+      storageClass: ""
+      # -- Keep the backup PVC on `helm uninstall`.
+      keep: true
+    # -- Resources of the backup job.
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+      limits: { memory: 512Mi }
+    # -- Job backoffLimit.
+    backoffLimit: 1
+    # -- Successful jobs kept.
+    successfulJobsHistoryLimit: 3
+    # -- Failed jobs kept.
+    failedJobsHistoryLimit: 3
 
 # Cache: external Valkey/Redis (default off = in-memory LRU per process).
 cache:
@@ -185,24 +267,52 @@ cache:
   # -- Key of the URL in `existingSecret`.
   urlKey: url
 
-# Bundled Valkey (groundhog2k/valkey). Sets `OAX_CACHE_URL` automatically when enabled.
+# Bundled Valkey: a small hardened Deployment (official image pinned by digest, password from the
+# generated Secret, no persistence - it is only a cache). Sets `OAX_CACHE_URL` automatically.
 valkey:
-  # -- Deploy the bundled Valkey.
+  # -- Deploy the bundled Valkey (shared cache and invalidation across replicas).
   enabled: false
-  # -- Adds seccomp RuntimeDefault so the pod passes PodSecurity `restricted`.
-  podSecurityContext:
-    seccompProfile: { type: RuntimeDefault }
-  # -- Container seccomp profile.
-  securityContext:
-    seccompProfile: { type: RuntimeDefault }
+  image:
+    # -- Registry (overridden by `airgapped.registry`).
+    registry: docker.io
+    # -- Repository.
+    repository: valkey/valkey
+    # -- Tag.
+    tag: "8.0.11-alpine"
+    # -- Digest of the multi-arch index.
+    digest: sha256:fd348c9b6999ef15719a1d6b43b810ee1bf2068ded2d7ab6f6dd15943841f28b
+  auth:
+    # -- Existing Secret with the password (empty = generated once in `<fullname>-generated`).
+    existingSecret: ""
+    # -- Key of the password (URL-safe).
+    key: valkey-password
+  # -- UID/GID of the `valkey` user in the image.
+  runAsUser: 999
+  # -- `--maxmemory` (the eviction policy is `allkeys-lru`).
+  maxMemory: 128mb
+  # -- Resources.
+  resources:
+    requests: { cpu: 25m, memory: 64Mi }
+    limits: { memory: 192Mi }
+  # -- Pod annotations.
+  podAnnotations: {}
+  # -- Node selector.
+  nodeSelector: {}
+  # -- Tolerations.
+  tolerations: []
+  # -- Affinity.
+  affinity: {}
+  # -- Priority class.
+  priorityClassName: ""
 
 auth:
   bootstrapAdmin:
-    # -- Create a local admin when the user table is empty.
-    enabled: false
+    # -- Create a local admin when the user table is empty. Ignored with `demo.enabled`.
+    enabled: true
     # -- `OAX_BOOTSTRAP_ADMIN_EMAIL`.
-    email: ""
-    # -- Existing Secret with the password (>= 12 characters).
+    email: admin@openagentix.local
+    # -- Existing Secret with the password (>= 12 characters). Empty = generated once in
+    # `<fullname>-generated` (read it with the command printed by `helm install`).
     existingSecret: ""
     # -- Key of the password.
     passwordKey: password
@@ -248,7 +358,8 @@ auth:
     bindPasswordKey: bind-password
 
 runToken:
-  # -- Existing Secret with the run-token HMAC key (>= 32 characters). Required.
+  # -- Existing Secret with the run-token HMAC key (>= 32 characters). Empty = generated once
+  # in `<fullname>-generated`.
   existingSecret: ""
   # -- Key in the Secret.
   key: run-token-secret
@@ -258,8 +369,10 @@ runToken:
 audit:
   signingKey:
     # -- Existing Secret with the Ed25519 private key (PKCS#8 PEM) for audit checkpoints.
-    # Empty = checkpoints are not signed (not recommended for production).
+    # Empty = generated once in `<fullname>-generated` (see `generate`).
     existingSecret: ""
+    # -- Generate an Ed25519 key when no `existingSecret` is set (false = unsigned checkpoints).
+    generate: true
     # -- Key in the Secret.
     key: ed25519.pem
     # -- `OAX_AUDIT_SIGNING_KEY_ID`.
@@ -383,8 +496,10 @@ containerSecurityContext:
 api:
   # -- Replicas when autoscaling is off.
   replicaCount: 2
-  # -- `OAX_DB_MIGRATE_ON_START` for the API. Keep false when `migrations.enabled`.
-  migrateOnStart: false
+  # -- `OAX_DB_MIGRATE_ON_START` for the API. `null` = automatic: true with the bundled PostgreSQL
+  # (the migrations Job then runs post-install, so `helm install --wait` needs the API to migrate
+  # itself; migrations are advisory-locked, so both can race safely), false otherwise.
+  migrateOnStart: null
   # -- Resources.
   resources:
     requests: { cpu: 100m, memory: 256Mi }
@@ -517,8 +632,8 @@ worker:
   extraVolumeMounts: []
 
 ui:
-  # -- Deploy the static UI (disabled until the UI image is published).
-  enabled: false
+  # -- Deploy the static UI.
+  enabled: true
   # -- Replicas.
   replicaCount: 2
   # -- Container port of the nginx-unprivileged based image.
@@ -603,6 +718,19 @@ ingress:
     enabled: false
     # -- TLS Secret (empty with ALB/ACM or cert-manager annotations).
     secretName: ""
+
+# Gateway API alternative to the Ingress (requires the Gateway API CRDs and a Gateway).
+gateway:
+  # -- Create an HTTPRoute. Mutually exclusive with `ingress.enabled`.
+  enabled: false
+  # -- `parentRefs` of the HTTPRoute (the Gateway and optionally the listener `sectionName`).
+  parentRefs: []
+  # -- Host names (empty = `ingress.host`).
+  hostnames: []
+  # -- The Gateway terminates TLS (only used to build `https://` public URLs).
+  tls: false
+  # -- Annotations of the HTTPRoute.
+  annotations: {}
 
 networkPolicy:
   # -- Create NetworkPolicies: default deny for all chart pods plus the explicit rules below.

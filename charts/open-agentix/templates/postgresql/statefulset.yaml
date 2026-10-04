@@ -1,0 +1,159 @@
+{{- if .Values.postgresql.enabled }}
+{{- include "open-agentix.validate" . }}
+{{- $pg := .Values.postgresql }}
+{{- $secretName := default (include "open-agentix.generatedSecretName" .) $pg.auth.existingSecret }}
+{{- $pgKey := ternary $pg.auth.keys.postgres "postgres-password" (ne $pg.auth.existingSecret "") }}
+{{- $appKey := ternary $pg.auth.keys.app "app-password" (ne $pg.auth.existingSecret "") }}
+{{- $migKey := ternary $pg.auth.keys.migrator "migrator-password" (ne $pg.auth.existingSecret "") }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "open-agentix.postgresql.host" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "postgresql") | nindent 4 }}
+  {{- include "open-agentix.annotations" . | nindent 2 }}
+spec:
+  replicas: 1
+  serviceName: {{ include "open-agentix.postgresql.host" . }}
+  podManagementPolicy: OrderedReady
+  updateStrategy:
+    type: RollingUpdate
+  {{- if and $pg.persistence.enabled $pg.persistence.keep }}
+  persistentVolumeClaimRetentionPolicy:
+    whenDeleted: Retain
+    whenScaled: Retain
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list . "postgresql") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "open-agentix.labels" (list . "postgresql") | nindent 8 }}
+      {{- with $pg.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "open-agentix.imagePullSecrets" . | nindent 6 }}
+      terminationGracePeriodSeconds: {{ $pg.terminationGracePeriodSeconds }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ $pg.runAsUser }}
+        runAsGroup: {{ $pg.runAsUser }}
+        fsGroup: {{ $pg.runAsUser }}
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with $pg.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $pg.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $pg.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $pg.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: postgresql
+          image: {{ include "open-agentix.serviceImage" (list . "postgresql") | quote }}
+          imagePullPolicy: {{ include "open-agentix.pullPolicy" . }}
+          args:
+            {{- range $k, $val := $pg.config }}
+            - -c
+            - {{ printf "%s=%v" $k $val | quote }}
+            {{- end }}
+          ports:
+            - name: postgresql
+              containerPort: 5432
+              protocol: TCP
+          env:
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_DB
+              value: postgres
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ $secretName | quote }}, key: {{ $pgKey | quote }} } }
+            - name: OAX_APP_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ $secretName | quote }}, key: {{ $appKey | quote }} } }
+            - name: OAX_MIGRATOR_PASSWORD
+              valueFrom: { secretKeyRef: { name: {{ $secretName | quote }}, key: {{ $migKey | quote }} } }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          startupProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1"]
+            periodSeconds: 5
+            failureThreshold: 60
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1"]
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres", "-h", "127.0.0.1"]
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml $pg.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: run
+              mountPath: /var/run/postgresql
+            - name: tmp
+              mountPath: /tmp
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+      volumes:
+        - name: run
+          emptyDir:
+            medium: Memory
+            sizeLimit: 16Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: init
+          configMap:
+            name: {{ include "open-agentix.componentName" (list . "postgresql-init") }}
+            defaultMode: 0555
+        {{- if not $pg.persistence.enabled }}
+        - name: data
+          emptyDir: {}
+        {{- end }}
+  {{- if $pg.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          {{- include "open-agentix.selectorLabels" (list . "postgresql") | nindent 10 }}
+      spec:
+        accessModes:
+          {{- toYaml $pg.persistence.accessModes | nindent 10 }}
+        {{- with $pg.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $pg.persistence.size }}
+  {{- end }}
+{{- end }}

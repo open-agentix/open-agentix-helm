@@ -1,0 +1,19 @@
+{{- if .Values.valkey.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "open-agentix.valkey.host" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "valkey") | nindent 4 }}
+  {{- include "open-agentix.annotations" . | nindent 2 }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: valkey
+      port: 6379
+      targetPort: valkey
+      protocol: TCP
+  selector:
+    {{- include "open-agentix.selectorLabels" (list . "valkey") | nindent 4 }}
+{{- end }}

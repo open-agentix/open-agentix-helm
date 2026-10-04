@@ -1,0 +1,78 @@
+suite: bundled postgresql backup
+templates:
+  - postgresql/backup-cronjob.yaml
+  - postgresql/backup-pvc.yaml
+release:
+  name: rel
+  namespace: oax
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
+tests:
+  - it: is off by default
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: renders a CronJob running pg_dump as the owner role and a PVC
+    set:
+      postgresql.backup.enabled: true
+      postgresql.backup.schedule: "5 1 * * *"
+      postgresql.backup.retentionDays: 3
+    asserts:
+      - isKind: { of: CronJob }
+        template: postgresql/backup-cronjob.yaml
+      - equal: { path: spec.schedule, value: "5 1 * * *" }
+        template: postgresql/backup-cronjob.yaml
+      - equal: { path: spec.concurrencyPolicy, value: Forbid }
+        template: postgresql/backup-cronjob.yaml
+      - equal: { path: 'spec.jobTemplate.spec.template.spec.securityContext.runAsNonRoot', value: true }
+        template: postgresql/backup-cronjob.yaml
+      - equal: { path: 'spec.jobTemplate.spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem', value: true }
+        template: postgresql/backup-cronjob.yaml
+      - contains:
+          path: 'spec.jobTemplate.spec.template.spec.containers[0].env'
+          content: { name: PGUSER, value: openagentix_migrator }
+        template: postgresql/backup-cronjob.yaml
+      - matchRegex:
+          path: 'spec.jobTemplate.spec.template.spec.containers[0].command[2]'
+          pattern: 'pg_dump --format=custom'
+        template: postgresql/backup-cronjob.yaml
+      - matchRegex:
+          path: 'spec.jobTemplate.spec.template.spec.containers[0].command[2]'
+          pattern: '-mtime "\+3"'
+        template: postgresql/backup-cronjob.yaml
+      - equal: { path: 'spec.jobTemplate.spec.template.spec.volumes[0].persistentVolumeClaim.claimName', value: rel-open-agentix-postgresql-backup }
+        template: postgresql/backup-cronjob.yaml
+      - isKind: { of: PersistentVolumeClaim }
+        template: postgresql/backup-pvc.yaml
+      - equal: { path: 'metadata.annotations["helm.sh/resource-policy"]', value: keep }
+        template: postgresql/backup-pvc.yaml
+      - equal: { path: spec.resources.requests.storage, value: 10Gi }
+        template: postgresql/backup-pvc.yaml
+
+  - it: uses an existing claim and keeps all archives with retentionDays 0
+    set:
+      postgresql.backup.enabled: true
+      postgresql.backup.retentionDays: 0
+      postgresql.backup.persistence.existingClaim: my-backups
+      postgresql.backup.timeZone: Europe/Berlin
+    asserts:
+      - hasDocuments: { count: 0 }
+        template: postgresql/backup-pvc.yaml
+      - equal: { path: 'spec.jobTemplate.spec.template.spec.volumes[0].persistentVolumeClaim.claimName', value: my-backups }
+        template: postgresql/backup-cronjob.yaml
+      - equal: { path: spec.timeZone, value: Europe/Berlin }
+        template: postgresql/backup-cronjob.yaml
+      - notMatchRegex:
+          path: 'spec.jobTemplate.spec.template.spec.containers[0].command[2]'
+          pattern: '-delete'
+        template: postgresql/backup-cronjob.yaml
+
+  - it: is not rendered with an external database
+    set:
+      postgresql.enabled: false
+      postgresql.backup.enabled: true
+      externalDatabase.host: db.example.com
+      externalDatabase.existingSecret: oax-db
+    asserts:
+      - hasDocuments: { count: 0 }

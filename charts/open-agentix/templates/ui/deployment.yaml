@@ -33,7 +33,7 @@ spec:
       containers:
         - name: ui
           image: {{ include "open-agentix.image" (list . "ui") | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ include "open-agentix.pullPolicy" . }}
           ports:
             - name: http
               containerPort: {{ .Values.ui.containerPort }}

@@ -1,0 +1,99 @@
+{{- if .Values.valkey.enabled }}
+{{- include "open-agentix.validate" . }}
+{{- $vk := .Values.valkey }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "open-agentix.valkey.host" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "valkey") | nindent 4 }}
+  {{- include "open-agentix.annotations" . | nindent 2 }}
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list . "valkey") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "open-agentix.labels" (list . "valkey") | nindent 8 }}
+      {{- with $vk.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      automountServiceAccountToken: false
+      {{- include "open-agentix.imagePullSecrets" . | nindent 6 }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ $vk.runAsUser }}
+        runAsGroup: {{ $vk.runAsUser }}
+        fsGroup: {{ $vk.runAsUser }}
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with $vk.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $vk.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $vk.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with $vk.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      containers:
+        - name: valkey
+          image: {{ include "open-agentix.serviceImage" (list . "valkey") | quote }}
+          imagePullPolicy: {{ include "open-agentix.pullPolicy" . }}
+          command:
+            - /bin/sh
+            - -c
+            - >-
+              exec valkey-server --dir /tmp --save "" --appendonly no
+              --maxmemory {{ $vk.maxMemory }} --maxmemory-policy allkeys-lru
+              --requirepass "$VALKEY_PASSWORD"
+          env:
+            - name: VALKEY_PASSWORD
+              valueFrom:
+                {{- include "open-agentix.secretKeyRef" (list . $vk.auth.existingSecret $vk.auth.key "valkey-password") | nindent 16 }}
+          ports:
+            - name: valkey
+              containerPort: 6379
+              protocol: TCP
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            capabilities:
+              drop: ["ALL"]
+            seccompProfile:
+              type: RuntimeDefault
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "valkey-cli -a \"$VALKEY_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "valkey-cli -a \"$VALKEY_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+            periodSeconds: 20
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml $vk.resources | nindent 12 }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+{{- end }}

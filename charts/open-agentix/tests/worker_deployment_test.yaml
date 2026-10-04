@@ -98,6 +98,6 @@ tests:
 
   - it: validates values like the API
     set:
-      runToken.existingSecret: ""
+      externalDatabase.existingSecret: ""
     asserts:
-      - failedTemplate: { errorPattern: "runToken.existingSecret is required" }
+      - failedTemplate: { errorPattern: "externalDatabase.existingSecret is required" }

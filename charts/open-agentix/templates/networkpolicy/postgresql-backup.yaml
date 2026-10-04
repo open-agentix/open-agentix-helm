@@ -1,0 +1,20 @@
+{{- if and .Values.networkPolicy.enabled .Values.postgresql.enabled .Values.postgresql.backup.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "postgresql-backup") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "postgresql-backup") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list . "postgresql-backup") | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress: []
+  egress:
+    {{- include "open-agentix.netpol.dns" . | nindent 4 }}
+    {{- include "open-agentix.netpol.database" . | nindent 4 }}
+{{- end }}

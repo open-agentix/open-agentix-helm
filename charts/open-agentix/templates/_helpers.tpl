@@ -69,8 +69,9 @@ registry/repository:tag[@digest]; tag defaults to the appVersion.
 {{- $img := index $root.Values.image (index . 1) -}}
 {{- $tag := default $root.Chart.AppVersion $img.tag -}}
 {{- $ref := printf "%s:%s" $img.repository $tag -}}
-{{- if $root.Values.image.registry -}}
-{{- $ref = printf "%s/%s" $root.Values.image.registry $ref -}}
+{{- $registry := default $root.Values.image.registry (include "open-agentix.airgappedRegistry" $root) -}}
+{{- if $registry -}}
+{{- $ref = printf "%s/%s" $registry $ref -}}
 {{- end -}}
 {{- if $img.digest -}}
 {{- $ref = printf "%s@%s" $ref $img.digest -}}
@@ -78,13 +79,62 @@ registry/repository:tag[@digest]; tag defaults to the appVersion.
 {{- $ref -}}
 {{- end -}}
 
+{{/* Registry override of the air-gapped mode (empty otherwise). */}}
+{{- define "open-agentix.airgappedRegistry" -}}
+{{- if .Values.airgapped.enabled -}}{{- .Values.airgapped.registry -}}{{- end -}}
+{{- end -}}
+
+{{/* Image of a bundled service. Usage: include "open-agentix.serviceImage" (list $ "postgresql") */}}
+{{- define "open-agentix.serviceImage" -}}
+{{- $root := index . 0 -}}
+{{- $img := (index $root.Values (index . 1)).image -}}
+{{- $registry := default $img.registry (include "open-agentix.airgappedRegistry" $root) -}}
+{{- $ref := printf "%s/%s:%s" $registry $img.repository $img.tag -}}
+{{- if $img.digest -}}{{- $ref = printf "%s@%s" $ref $img.digest -}}{{- end -}}
+{{- $ref -}}
+{{- end -}}
+
+{{/* Pull policy of every image (air-gapped mode overrides it). */}}
+{{- define "open-agentix.pullPolicy" -}}
+{{- if .Values.airgapped.enabled -}}{{- .Values.airgapped.pullPolicy -}}{{- else -}}{{- .Values.image.pullPolicy -}}{{- end -}}
+{{- end -}}
+
 {{- define "open-agentix.imagePullSecrets" -}}
-{{- with .Values.image.pullSecrets }}
+{{- $secrets := .Values.image.pullSecrets -}}
+{{- if .Values.airgapped.enabled -}}{{- $secrets = concat $secrets .Values.airgapped.pullSecrets -}}{{- end -}}
+{{- with $secrets }}
 imagePullSecrets:
 {{- range . }}
   - name: {{ . }}
 {{- end }}
 {{- end }}
+{{- end -}}
+
+{{/* Name of the Secret with the generated credentials. */}}
+{{- define "open-agentix.generatedSecretName" -}}
+{{- include "open-agentix.componentName" (list . "generated") -}}
+{{- end -}}
+
+{{/*
+secretKeyRef to an existing Secret or, when it is empty, to the generated Secret.
+Usage: include "open-agentix.secretKeyRef" (list $ $existingSecret $key $generatedKey)
+*/}}
+{{- define "open-agentix.secretKeyRef" -}}
+{{- $root := index . 0 -}}
+{{- if index . 1 -}}
+secretKeyRef: { name: {{ index . 1 | quote }}, key: {{ index . 2 | quote }} }
+{{- else -}}
+secretKeyRef: { name: {{ include "open-agentix.generatedSecretName" $root | quote }}, key: {{ index . 3 | quote }} }
+{{- end -}}
+{{- end -}}
+
+{{/* True when the API migrates the schema itself (OAX_DB_MIGRATE_ON_START). */}}
+{{- define "open-agentix.migrateOnStart" -}}
+{{- if kindIs "bool" .Values.api.migrateOnStart -}}
+{{- .Values.api.migrateOnStart -}}
+{{- else -}}
+{{- and .Values.postgresql.enabled .Values.migrations.enabled (include "open-agentix.migrationHooks" . | contains "post-install") -}}
+{{- end -}}
 {{- end -}}
 
 {{/* ServiceAccount names */}}
@@ -107,6 +157,8 @@ URLs
 {{- .Values.config.publicUrl | trimSuffix "/" -}}
 {{- else if .Values.ingress.enabled -}}
 {{- printf "%s://%s" (ternary "https" "http" .Values.ingress.tls.enabled) .Values.ingress.host -}}
+{{- else if .Values.gateway.enabled -}}
+{{- printf "%s://%s" (ternary "https" "http" .Values.gateway.tls) (default .Values.ingress.host (first (default (list) .Values.gateway.hostnames))) -}}
 {{- else -}}
 {{- printf "http://%s.%s.svc:%v" (include "open-agentix.componentName" (list . "api")) .Release.Namespace .Values.api.service.port -}}
 {{- end -}}
@@ -124,18 +176,22 @@ URLs
 {{- if kindIs "bool" .Values.config.trustProxy -}}
 {{- .Values.config.trustProxy -}}
 {{- else -}}
-{{- .Values.ingress.enabled -}}
+{{- or .Values.ingress.enabled .Values.gateway.enabled -}}
 {{- end -}}
 {{- end -}}
 
 {{/* OAX_PROVIDERS JSON: config.providers plus the optional Bedrock entry. */}}
 {{- define "open-agentix.providersJson" -}}
 {{- $providers := list -}}
+{{- if .Values.demo.enabled -}}
+{{- $providers = append $providers (dict "kind" "simulated" "name" "simulated") -}}
+{{- else -}}
 {{- range .Values.config.providers -}}
 {{- $providers = append $providers . -}}
 {{- end -}}
+{{- end -}}
 {{- with .Values.aws.bedrock -}}
-{{- if .enabled -}}
+{{- if and .enabled (not $.Values.demo.enabled) -}}
 {{- $b := dict "kind" "bedrock" "name" .name "region" (default $.Values.aws.region .region) "clearance" .clearance -}}
 {{- if .vpcEndpointUrl -}}{{- $_ := set $b "endpoint" .vpcEndpointUrl -}}{{- end -}}
 {{- if .proxyUrl -}}{{- $_ := set $b "proxyUrl" .proxyUrl -}}{{- end -}}
@@ -145,23 +201,13 @@ URLs
 {{- toJson $providers -}}
 {{- end -}}
 
-{{/*
-Bundled subchart service names (groundhog2k naming: <release>-<alias> unless overridden).
-*/}}
-{{- define "open-agentix.subchartFullname" -}}
-{{- $root := index . 0 -}}
-{{- $alias := index . 1 -}}
-{{- $vals := index $root.Values $alias -}}
-{{- if $vals.fullnameOverride -}}
-{{- $vals.fullnameOverride | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- $name := default $alias $vals.nameOverride -}}
-{{- if contains $name $root.Release.Name -}}
-{{- $root.Release.Name | trunc 63 | trimSuffix "-" -}}
-{{- else -}}
-{{- printf "%s-%s" $root.Release.Name $name | trunc 63 | trimSuffix "-" -}}
+{{/* Service names of the bundled PostgreSQL and Valkey. */}}
+{{- define "open-agentix.postgresql.host" -}}
+{{- include "open-agentix.componentName" (list . "postgresql") -}}
 {{- end -}}
-{{- end -}}
+
+{{- define "open-agentix.valkey.host" -}}
+{{- include "open-agentix.componentName" (list . "valkey") -}}
 {{- end -}}
 
 {{/*
@@ -172,15 +218,13 @@ Produces OAX_DATABASE_URL either from a URL key or composed from parts ($(VAR) e
 {{- $root := index . 0 -}}
 {{- $role := index . 1 -}}
 {{- if $root.Values.postgresql.enabled -}}
-{{- $pg := $root.Values.postgresql.userDatabase -}}
-- name: OAX_DB_NAME
-  valueFrom: { secretKeyRef: { name: {{ $pg.existingSecret | quote }}, key: {{ $pg.name.secretKey | quote }} } }
-- name: OAX_DB_USER
-  valueFrom: { secretKeyRef: { name: {{ $pg.existingSecret | quote }}, key: {{ $pg.user.secretKey | quote }} } }
+{{- $pg := $root.Values.postgresql.auth -}}
+{{- $isMigrator := eq $role "migrations" -}}
 - name: OAX_DB_PASSWORD
-  valueFrom: { secretKeyRef: { name: {{ $pg.existingSecret | quote }}, key: {{ $pg.password.secretKey | quote }} } }
+  valueFrom:
+    {{- include "open-agentix.secretKeyRef" (list $root $pg.existingSecret (ternary $pg.keys.migrator $pg.keys.app $isMigrator) (ternary "migrator-password" "app-password" $isMigrator)) | nindent 4 }}
 - name: OAX_DATABASE_URL
-  value: {{ printf "postgres://$(OAX_DB_USER):$(OAX_DB_PASSWORD)@%s:5432/$(OAX_DB_NAME)?sslmode=disable" (include "open-agentix.subchartFullname" (list $root "postgresql")) | quote }}
+  value: {{ printf "postgres://%s:$(OAX_DB_PASSWORD)@%s:5432/%s?sslmode=disable" (ternary $pg.migratorUser $pg.appUser $isMigrator) (include "open-agentix.postgresql.host" $root) $pg.database | quote }}
 {{- else -}}
 {{- $db := $root.Values.externalDatabase -}}
 {{- $secret := $db.existingSecret -}}
@@ -210,7 +254,8 @@ Produces OAX_DATABASE_URL either from a URL key or composed from parts ($(VAR) e
 {{/* Run-token secret (api, worker and migrations: loadConfig requires it in production). */}}
 {{- define "open-agentix.env.runToken" -}}
 - name: OAX_RUN_TOKEN_SECRET
-  valueFrom: { secretKeyRef: { name: {{ .Values.runToken.existingSecret | quote }}, key: {{ .Values.runToken.key | quote }} } }
+  valueFrom:
+    {{- include "open-agentix.secretKeyRef" (list . .Values.runToken.existingSecret .Values.runToken.key "run-token-secret") | nindent 4 }}
 - name: OAX_RUN_TOKEN_TTL_SECONDS
   value: {{ .Values.runToken.ttlSeconds | quote }}
 {{- end -}}
@@ -232,7 +277,7 @@ Environment shared by api and worker. Usage: include "open-agentix.env.common" (
 - name: OAX_DB_STATEMENT_TIMEOUT_MS
   value: {{ $v.config.database.statementTimeoutMs | quote }}
 - name: OAX_DB_MIGRATE_ON_START
-  value: {{ and (eq $component "api") $v.api.migrateOnStart | quote }}
+  value: {{ and (eq $component "api") (include "open-agentix.migrateOnStart" $root | eq "true") | quote }}
 - name: OAX_PUBLIC_URL
   value: {{ include "open-agentix.publicUrl" $root | quote }}
 {{- with (include "open-agentix.uiUrl" $root) }}
@@ -246,14 +291,17 @@ Environment shared by api and worker. Usage: include "open-agentix.env.common" (
 - name: OAX_TRUST_PROXY
   value: {{ include "open-agentix.trustProxy" $root | quote }}
 - name: OAX_BODY_LIMIT_BYTES
-  value: {{ $v.config.bodyLimitBytes | quote }}
+  value: {{ $v.config.bodyLimitBytes | int64 | quote }}
 - name: OAX_CACHE_MAX_ENTRIES
   value: {{ $v.config.cache.maxEntries | quote }}
 - name: OAX_AUTH_CACHE_TTL_SECONDS
   value: {{ $v.config.cache.authTtlSeconds | quote }}
 {{- if $v.valkey.enabled }}
+- name: OAX_VALKEY_PASSWORD
+  valueFrom:
+    {{- include "open-agentix.secretKeyRef" (list $root $v.valkey.auth.existingSecret $v.valkey.auth.key "valkey-password") | nindent 4 }}
 - name: OAX_CACHE_URL
-  value: {{ printf "redis://%s:6379" (include "open-agentix.subchartFullname" (list $root "valkey")) | quote }}
+  value: {{ printf "redis://:$(OAX_VALKEY_PASSWORD)@%s:6379" (include "open-agentix.valkey.host" $root) | quote }}
 {{- else if $v.cache.enabled }}
 {{- if $v.cache.existingSecret }}
 - name: OAX_CACHE_URL
@@ -272,11 +320,12 @@ Environment shared by api and worker. Usage: include "open-agentix.env.common" (
 - name: OAX_RATE_LIMIT_LOGIN_MAX
   value: {{ $v.config.rateLimit.loginMax | quote }}
 {{- with $v.auth.bootstrapAdmin }}
-{{- if .enabled }}
+{{- if and .enabled (not $v.demo.enabled) }}
 - name: OAX_BOOTSTRAP_ADMIN_EMAIL
   value: {{ .email | quote }}
 - name: OAX_BOOTSTRAP_ADMIN_PASSWORD
-  valueFrom: { secretKeyRef: { name: {{ .existingSecret | quote }}, key: {{ .passwordKey | quote }} } }
+  valueFrom:
+    {{- include "open-agentix.secretKeyRef" (list $root .existingSecret .passwordKey "bootstrap-admin-password") | nindent 4 }}
 {{- end }}
 {{- end }}
 {{- with $v.auth.oidc }}
@@ -324,9 +373,10 @@ Environment shared by api and worker. Usage: include "open-agentix.env.common" (
 {{- end }}
 {{- end }}
 {{- with $v.audit }}
-{{- if .signingKey.existingSecret }}
+{{- if or .signingKey.existingSecret .signingKey.generate }}
 - name: OAX_AUDIT_SIGNING_KEY
-  valueFrom: { secretKeyRef: { name: {{ .signingKey.existingSecret | quote }}, key: {{ .signingKey.key | quote }} } }
+  valueFrom:
+    {{- include "open-agentix.secretKeyRef" (list $root .signingKey.existingSecret .signingKey.key "ed25519.pem") | nindent 4 }}
 {{- end }}
 - name: OAX_AUDIT_SIGNING_KEY_ID
   value: {{ .signingKey.keyId | quote }}
@@ -349,7 +399,7 @@ Environment shared by api and worker. Usage: include "open-agentix.env.common" (
 - name: OAX_WEBHOOK_TOLERANCE_SECONDS
   value: {{ $v.config.webhook.toleranceSeconds | quote }}
 - name: OAX_WEBHOOK_MAX_BYTES
-  value: {{ $v.config.webhook.maxBytes | quote }}
+  value: {{ $v.config.webhook.maxBytes | int64 | quote }}
 - name: OAX_SSE_POLL_MS
   value: {{ $v.config.ssePollMs | quote }}
 {{- if eq $component "worker" }}
@@ -364,7 +414,17 @@ Environment shared by api and worker. Usage: include "open-agentix.env.common" (
 - name: OAX_APPROVAL_POLL_MS
   value: {{ $v.worker.approvalPollMs | quote }}
 - name: OAX_DEMO_MCP
-  value: {{ $v.worker.demoMcp | quote }}
+  value: {{ or $v.worker.demoMcp $v.demo.enabled | quote }}
+{{- end }}
+{{- if and $v.demo.enabled (eq $component "api") }}
+- name: OAX_DEMO_MODE
+  value: "true"
+- name: OAX_DEMO_PASSWORD
+  value: {{ $v.demo.password | quote }}
+{{- end }}
+{{- if $v.airgapped.enabled }}
+- name: OAX_AIRGAPPED
+  value: "true"
 {{- end }}
 {{- if $v.observability.metrics.existingSecret }}
 - name: OAX_METRICS_TOKEN
@@ -524,16 +584,13 @@ Validation of required values; fails the render with an actionable message.
 */}}
 {{- define "open-agentix.validate" -}}
 {{- $v := .Values -}}
-{{- if not $v.runToken.existingSecret -}}
-{{- fail "runToken.existingSecret is required: create a Secret with a random value of >= 32 characters (key runToken.key) and reference it." -}}
-{{- end -}}
 {{- if $v.postgresql.enabled -}}
-{{- if not $v.postgresql.userDatabase.existingSecret -}}
-{{- fail "postgresql.userDatabase.existingSecret is required when postgresql.enabled=true (keys: database, user, password)." -}}
+{{- if and $v.postgresql.auth.existingSecret (not $v.postgresql.auth.keys.postgres) -}}
+{{- fail "postgresql.auth.keys.postgres must be set." -}}
 {{- end -}}
 {{- else -}}
 {{- if not $v.externalDatabase.existingSecret -}}
-{{- fail "externalDatabase.existingSecret is required (or set postgresql.enabled=true for the bundled database)." -}}
+{{- fail "externalDatabase.existingSecret is required when postgresql.enabled=false (Secret with the password or a full URL)." -}}
 {{- end -}}
 {{- if and (not $v.externalDatabase.urlKey) (not $v.externalDatabase.host) -}}
 {{- fail "externalDatabase.host is required unless externalDatabase.urlKey points to a complete URL." -}}
@@ -545,8 +602,8 @@ Validation of required values; fails the render with an actionable message.
 {{- if and $v.cache.enabled (not $v.cache.url) (not $v.cache.existingSecret) -}}
 {{- fail "cache.enabled requires cache.url or cache.existingSecret." -}}
 {{- end -}}
-{{- if and $v.auth.bootstrapAdmin.enabled (or (not $v.auth.bootstrapAdmin.email) (not $v.auth.bootstrapAdmin.existingSecret)) -}}
-{{- fail "auth.bootstrapAdmin.enabled requires email and existingSecret." -}}
+{{- if and $v.auth.bootstrapAdmin.enabled (not $v.demo.enabled) (not $v.auth.bootstrapAdmin.email) -}}
+{{- fail "auth.bootstrapAdmin.enabled requires an email." -}}
 {{- end -}}
 {{- if and $v.auth.oidc.enabled (or (not $v.auth.oidc.issuer) (not $v.auth.oidc.clientId)) -}}
 {{- fail "auth.oidc.enabled requires issuer and clientId." -}}
@@ -557,15 +614,44 @@ Validation of required values; fails the render with an actionable message.
 {{- if and $v.aws.bedrock.enabled (not (or $v.aws.bedrock.region $v.aws.region)) -}}
 {{- fail "aws.bedrock.enabled requires aws.region or aws.bedrock.region." -}}
 {{- end -}}
-{{- if and $v.api.migrateOnStart $v.migrations.enabled -}}
-{{- fail "api.migrateOnStart and migrations.enabled are mutually exclusive: use the migrations Job (recommended) or migrate on start." -}}
+{{- if and (kindIs "bool" $v.api.migrateOnStart) $v.api.migrateOnStart $v.migrations.enabled (not $v.postgresql.enabled) -}}
+{{- fail "api.migrateOnStart=true and migrations.enabled are mutually exclusive with an external database: use the migrations Job (recommended) or migrate on start." -}}
 {{- end -}}
 {{- if and $v.ingress.enabled (not $v.ingress.host) -}}
 {{- fail "ingress.host is required when ingress.enabled=true." -}}
 {{- end -}}
+{{- if and $v.ingress.enabled $v.gateway.enabled -}}
+{{- fail "ingress.enabled and gateway.enabled are mutually exclusive." -}}
+{{- end -}}
+{{- if and $v.gateway.enabled (not $v.gateway.parentRefs) -}}
+{{- fail "gateway.enabled requires gateway.parentRefs (the Gateway to attach to)." -}}
+{{- end -}}
+{{- if and $v.gateway.enabled (not (or $v.gateway.hostnames $v.ingress.host)) -}}
+{{- fail "gateway.enabled requires gateway.hostnames." -}}
+{{- end -}}
 {{- if $v.runners.kubernetesJob.enabled -}}
 {{- if eq $v.runners.kubernetesJob.namespace .Release.Namespace -}}
 {{- fail "runners.kubernetesJob.namespace must be a dedicated namespace, not the release namespace." -}}
+{{- end -}}
+{{- end -}}
+{{- if $v.demo.enabled -}}
+{{- if or $v.auth.oidc.enabled $v.auth.ldap.enabled -}}
+{{- fail "demo.enabled is incompatible with auth.oidc and auth.ldap (the demo uses its own fake users)." -}}
+{{- end -}}
+{{- if $v.aws.bedrock.enabled -}}
+{{- fail "demo.enabled is incompatible with aws.bedrock (the demo uses the simulated provider only)." -}}
+{{- end -}}
+{{- end -}}
+{{- if $v.airgapped.enabled -}}
+{{- if not $v.networkPolicy.enabled -}}
+{{- fail "airgapped.enabled requires networkPolicy.enabled=true." -}}
+{{- end -}}
+{{- if or $v.proxy.httpsProxy $v.proxy.httpProxy -}}
+{{- fail "airgapped.enabled does not allow an outbound proxy (proxy.httpsProxy / proxy.httpProxy)." -}}
+{{- end -}}
+{{- $egress := toJson $v.networkPolicy.egress -}}
+{{- if or (contains "0.0.0.0/0" $egress) (contains "::/0" $egress) -}}
+{{- fail "airgapped.enabled does not allow networkPolicy.egress rules that open the internet (0.0.0.0/0, ::/0)." -}}
 {{- end -}}
 {{- end -}}
 {{- end -}}
@@ -588,8 +674,7 @@ NetworkPolicy egress building blocks. Each renders zero or more list items for `
 - to:
     - podSelector:
         matchLabels:
-          app.kubernetes.io/name: {{ default "postgresql" .Values.postgresql.nameOverride }}
-          app.kubernetes.io/instance: {{ .Release.Name }}
+          {{- include "open-agentix.selectorLabels" (list . "postgresql") | nindent 10 }}
   ports:
     - { protocol: TCP, port: 5432 }
 {{- else }}
@@ -607,8 +692,7 @@ NetworkPolicy egress building blocks. Each renders zero or more list items for `
 - to:
     - podSelector:
         matchLabels:
-          app.kubernetes.io/name: {{ default "valkey" .Values.valkey.nameOverride }}
-          app.kubernetes.io/instance: {{ .Release.Name }}
+          {{- include "open-agentix.selectorLabels" (list . "valkey") | nindent 10 }}
   ports:
     - { protocol: TCP, port: 6379 }
 {{- else if .Values.cache.enabled }}

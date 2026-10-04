@@ -1,10 +1,11 @@
 apiVersion: v2
 name: open-agentix
 description: >-
-  open-agentix - the agentic platform. Control node (API, UI), worker, database migrations and
-  hardened defaults (PodSecurity restricted, default-deny NetworkPolicies) for Kubernetes and EKS.
+  open-agentix - the agentic platform. Control node (API, UI), worker, database migrations, a
+  bundled PostgreSQL and hardened defaults (PodSecurity restricted, default-deny NetworkPolicies)
+  for Kubernetes and EKS.
 type: application
-version: 0.1.1
+version: 0.2.0
 appVersion: "0.1.0"
 kubeVersion: ">=1.27.0-0"
 home: https://openagentix.si
@@ -19,25 +20,10 @@ keywords:
   - policy
   - bedrock
 maintainers:
-  - name: Erik Weisser
-    url: https://github.com/open-agentix
   - name: agentix-zero
+    email: github@openagentix.si
     url: https://github.com/agentix-zero
 annotations:
   artifacthub.io/license: Apache-2.0
   artifacthub.io/prerelease: "true"
   artifacthub.io/containsSecurityUpdates: "false"
-# Optional bundled services. Disabled by default: the chart expects an external PostgreSQL and,
-# optionally, an external Valkey/Redis. Exact versions are pinned; the archive digests are listed
-# in dependency-digests.txt and verified in CI after `helm dependency build`.
-dependencies:
-  - name: postgres
-    alias: postgresql
-    version: 1.6.8
-    repository: https://groundhog2k.github.io/helm-charts/
-    condition: postgresql.enabled
-  - name: valkey
-    alias: valkey
-    version: 2.3.4
-    repository: https://groundhog2k.github.io/helm-charts/
-    condition: valkey.enabled

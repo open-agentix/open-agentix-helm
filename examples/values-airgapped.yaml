@@ -1,15 +1,22 @@
-# Air-gapped cluster: images from an internal registry pinned by digest, no internet egress,
-# models served by Ollama inside the cluster (namespace "ollama"). Nothing leaves the cluster.
-image:
+# Air-gapped cluster: every image comes from an internal registry (mirror the platform images,
+# PostgreSQL and Valkey with the same repository paths, see docs/airgapped.md), nothing may leave
+# the cluster, models are served by Ollama inside the cluster, login is LDAP. The bundled
+# PostgreSQL stays enabled; point it at a managed one with postgresql.enabled=false if you have one.
+airgapped:
+  enabled: true
   registry: registry.internal.example
+  pullPolicy: IfNotPresent
   pullSecrets:
     - internal-registry
+
+image:
   api:
-    repository: mirror/open-agentix/open-agentix-api
     tag: "0.1.0"
     digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
   worker:
-    repository: mirror/open-agentix/open-agentix-worker
+    tag: "0.1.0"
+    digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  ui:
     tag: "0.1.0"
     digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
 
@@ -21,19 +28,19 @@ config:
       clearance: restricted
   priceTable: []
 
-externalDatabase:
-  host: postgres-rw.databases.svc.cluster.local
-  sslmode: verify-full
-  existingSecret: oax-db
-
-runToken:
-  existingSecret: oax-run-token
+postgresql:
+  backup:
+    enabled: true
+    persistence:
+      storageClass: internal-block
 
 audit:
   signingKey:
     existingSecret: oax-audit-signing-key
 
 auth:
+  bootstrapAdmin:
+    enabled: false
   ldap:
     enabled: true
     url: ldaps://ldap.internal.example:636
@@ -55,10 +62,6 @@ ingress:
 networkPolicy:
   enabled: true
   egress:
-    database:
-      - namespaceSelector:
-          matchLabels:
-            kubernetes.io/metadata.name: databases
     auth:
       - to:
           - ipBlock: { cidr: 10.0.10.5/32 }

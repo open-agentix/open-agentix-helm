@@ -1,13 +1,8 @@
-# Render case: bundled PostgreSQL and Valkey (needs `helm dependency build`).
-runToken:
-  existingSecret: oax-run-token
-postgresql:
-  enabled: true
-  userDatabase:
-    existingSecret: oax-pg
-  settings:
-    existingSecret: oax-pg
+# Render case: bundled PostgreSQL (with backups) and Valkey, all credentials generated.
 valkey:
   enabled: true
+postgresql:
+  backup:
+    enabled: true
 api:
   replicaCount: 1

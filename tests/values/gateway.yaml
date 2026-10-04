@@ -1,0 +1,14 @@
+# Render case: Gateway API HTTPRoute instead of an Ingress, external PostgreSQL and ElastiCache.
+postgresql:
+  enabled: false
+externalDatabase:
+  host: db.example.com
+  existingSecret: oax-db
+gateway:
+  enabled: true
+  tls: true
+  hostnames: [agents.example.com]
+  parentRefs:
+    - name: shared-gateway
+      namespace: gateways
+      sectionName: https

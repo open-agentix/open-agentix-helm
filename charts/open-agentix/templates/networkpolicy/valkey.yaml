@@ -1,0 +1,27 @@
+{{- if and .Values.networkPolicy.enabled .Values.valkey.enabled }}
+# The bundled Valkey accepts connections only from api and worker, and has no egress at all.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "valkey") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "valkey") | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "open-agentix.selectorLabels" (list . "valkey") | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        {{- range list "api" "worker" }}
+        - podSelector:
+            matchLabels:
+              {{- include "open-agentix.selectorLabels" (list $ .) | nindent 14 }}
+        {{- end }}
+      ports:
+        - { protocol: TCP, port: 6379 }
+  egress: []
+{{- end }}

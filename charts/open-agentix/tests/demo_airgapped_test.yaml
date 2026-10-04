@@ -1,0 +1,84 @@
+suite: demo and air-gapped mode
+templates:
+  - api/deployment.yaml
+  - worker/deployment.yaml
+  - migrations/job.yaml
+  - postgresql/statefulset.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+chart:
+  version: 0.2.0
+  appVersion: 0.1.0
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
+tests:
+  - it: demo mode makes the API read-only with the simulated provider only
+    set:
+      demo.enabled: true
+      demo.password: shared-demo-pass
+      config.providers:
+        - { kind: openai, name: openai, apiKeySecret: k }
+      auth.bootstrapAdmin.enabled: true
+      auth.bootstrapAdmin.email: a@example.org
+    template: api/deployment.yaml
+    asserts:
+      - contains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_DEMO_MODE, value: "true" } }
+      - contains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_DEMO_PASSWORD, value: shared-demo-pass } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_PROVIDERS, value: '[{"kind":"simulated","name":"simulated"}]' }
+      - notContains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_BOOTSTRAP_ADMIN_EMAIL, value: a@example.org }
+
+  - it: demo mode registers the demo MCP servers on the worker, not the API
+    set:
+      demo.enabled: true
+    asserts:
+      - contains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_DEMO_MCP, value: "true" } }
+        template: worker/deployment.yaml
+      - notContains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_DEMO_MODE, value: "true" } }
+        template: worker/deployment.yaml
+
+  - it: demo mode is off by default
+    template: api/deployment.yaml
+    asserts:
+      - notContains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_DEMO_MODE, value: "true" } }
+
+  - it: air-gapped mode sets OAX_AIRGAPPED, never pulls and uses the private registry for every image
+    set:
+      airgapped.enabled: true
+      airgapped.registry: registry.internal
+      airgapped.pullPolicy: Never
+      airgapped.pullSecrets: [internal-registry]
+      image.pullSecrets: [regcred]
+      postgresql.enabled: true
+    asserts:
+      - contains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_AIRGAPPED, value: "true" } }
+        template: api/deployment.yaml
+      - contains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_AIRGAPPED, value: "true" } }
+        template: worker/deployment.yaml
+      - equal: { path: 'spec.template.spec.containers[0].imagePullPolicy', value: Never }
+        template: api/deployment.yaml
+      - equal: { path: 'spec.template.spec.containers[0].imagePullPolicy', value: Never }
+        template: migrations/job.yaml
+      - equal: { path: 'spec.template.spec.containers[0].image', value: registry.internal/open-agentix/open-agentix-api:0.1.0 }
+        template: api/deployment.yaml
+      - equal: { path: 'spec.template.spec.containers[0].image', value: registry.internal/open-agentix/open-agentix-worker:0.1.0 }
+        template: worker/deployment.yaml
+      - matchRegex:
+          path: 'spec.template.spec.containers[0].image'
+          pattern: '^registry\.internal/library/postgres:16\.[0-9]+-alpine@sha256:'
+        template: postgresql/statefulset.yaml
+      - equal: { path: spec.template.spec.imagePullSecrets, value: [{ name: regcred }, { name: internal-registry }] }
+        template: api/deployment.yaml
+
+  - it: air-gapped mode is off by default
+    template: api/deployment.yaml
+    asserts:
+      - notContains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_AIRGAPPED, value: "true" } }
+      - equal: { path: 'spec.template.spec.containers[0].imagePullPolicy', value: IfNotPresent }

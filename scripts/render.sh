@@ -2,7 +2,7 @@
 # Renders the chart for every render case into an output directory (one file per case).
 #   scripts/render.sh [outdir]          default: .out/rendered
 # Cases: examples/values-*.yaml, charts/open-agentix/ci/*-values.yaml, tests/values/*.yaml
-# Requires helm (and `helm dependency build` for cases with bundled subcharts).
+# Requires helm.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 CHART=charts/open-agentix
@@ -18,7 +18,9 @@ for f in $(cases); do
   name=$(basename "$f" .yaml)
   [ "$(dirname "$f")" = "$CHART/ci" ] && name="ci-$name"
   [ "$(dirname "$f")" = "tests/values" ] && name="case-$name"
+  # `lookup` returns nothing under `helm template`, so the generated credentials are random on
+  # every render; they are masked to keep the golden files deterministic.
   helm template oax "$CHART" --namespace openagentix --kube-version "$KUBE_VERSION" \
-    -f "$f" > "$OUT/$name.yaml"
+    -f "$f" | sed -E 's/^(  (run-token-secret|postgres-password|app-password|migrator-password|valkey-password|bootstrap-admin-password|ed25519\.pem)): .+$/\1: "<generated>"/' > "$OUT/$name.yaml"
   echo "rendered $f -> $OUT/$name.yaml"
 done
