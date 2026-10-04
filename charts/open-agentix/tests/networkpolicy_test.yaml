@@ -5,6 +5,9 @@ templates:
   - networkpolicy/worker.yaml
   - networkpolicy/ui.yaml
   - networkpolicy/migrations.yaml
+  - networkpolicy/postgresql.yaml
+  - networkpolicy/valkey.yaml
+  - networkpolicy/postgresql-backup.yaml
 values:
   - values/base.yaml
 release:
@@ -60,15 +63,14 @@ tests:
     template: networkpolicy/worker.yaml
     set:
       postgresql.enabled: true
-      postgresql.userDatabase.existingSecret: oax-pg
       valkey.enabled: true
     asserts:
       - equal:
           path: 'spec.egress[1].to[0].podSelector.matchLabels'
-          value: { app.kubernetes.io/name: postgresql, app.kubernetes.io/instance: rel }
+          value: { app.kubernetes.io/name: open-agentix, app.kubernetes.io/instance: rel, app.kubernetes.io/component: postgresql }
       - equal:
           path: 'spec.egress[2].to[0].podSelector.matchLabels'
-          value: { app.kubernetes.io/name: valkey, app.kubernetes.io/instance: rel }
+          value: { app.kubernetes.io/name: open-agentix, app.kubernetes.io/instance: rel, app.kubernetes.io/component: valkey }
 
   - it: adds metrics scraping and identity provider egress to the API
     template: networkpolicy/api.yaml
@@ -147,3 +149,41 @@ tests:
       networkPolicy.dns.enabled: false
     asserts:
       - lengthEqual: { path: spec.egress, count: 1 }
+
+  - it: restricts the bundled PostgreSQL to api, worker, migrations and backup pods without egress
+    template: networkpolicy/postgresql.yaml
+    set:
+      postgresql.enabled: true
+    asserts:
+      - equal: { path: spec.policyTypes, value: [Ingress, Egress] }
+      - lengthEqual: { path: 'spec.ingress[0].from', count: 4 }
+      - equal: { path: 'spec.ingress[0].ports', value: [{ protocol: TCP, port: 5432 }] }
+      - equal: { path: spec.egress, value: [] }
+      - equal:
+          path: 'spec.ingress[0].from[0].podSelector.matchLabels'
+          value: { app.kubernetes.io/name: open-agentix, app.kubernetes.io/instance: rel, app.kubernetes.io/component: api }
+
+  - it: restricts the bundled Valkey to api and worker
+    template: networkpolicy/valkey.yaml
+    set:
+      valkey.enabled: true
+    asserts:
+      - lengthEqual: { path: 'spec.ingress[0].from', count: 2 }
+      - equal: { path: spec.egress, value: [] }
+
+  - it: lets the backup job reach DNS and PostgreSQL only
+    template: networkpolicy/postgresql-backup.yaml
+    set:
+      postgresql.enabled: true
+      postgresql.backup.enabled: true
+    asserts:
+      - equal: { path: spec.ingress, value: [] }
+      - lengthEqual: { path: spec.egress, count: 2 }
+
+  - it: renders no bundled-service policies when NetworkPolicies are off
+    set:
+      networkPolicy.enabled: false
+      postgresql.enabled: true
+      valkey.enabled: true
+    asserts:
+      - hasDocuments: { count: 0 }

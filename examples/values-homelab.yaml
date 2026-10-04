@@ -1,5 +1,5 @@
-# Single-node homelab: one replica each, external PostgreSQL on the LAN, nginx ingress with
-# cert-manager, local admin plus an Ollama on another LAN host.
+# Single-node homelab: one replica each, the bundled PostgreSQL, nginx ingress with
+# cert-manager, a generated local admin plus an Ollama on another LAN host.
 config:
   providers:
     - kind: simulated
@@ -9,19 +9,16 @@ config:
       baseUrl: http://192.168.1.50:11434
       clearance: restricted
 
-externalDatabase:
-  host: 192.168.1.40
-  sslmode: disable
-  existingSecret: oax-db
-
-runToken:
-  existingSecret: oax-run-token
+postgresql:
+  persistence:
+    size: 4Gi
+  backup:
+    enabled: true
+    retentionDays: 7
 
 auth:
   bootstrapAdmin:
-    enabled: true
     email: admin@home.example
-    existingSecret: oax-admin
 
 defaultTopologySpread: false
 
@@ -51,8 +48,6 @@ ingress:
 networkPolicy:
   enabled: true
   egress:
-    database:
-      - ipBlock: { cidr: 192.168.1.40/32 }
     providers:
       - to:
           - ipBlock: { cidr: 192.168.1.50/32 }

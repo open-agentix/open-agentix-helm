@@ -1,0 +1,34 @@
+# Public read-only demo (demo.openagentix.si): the platform seeds its deterministic fake data set
+# on first start, the API is read-only, the simulated provider is the only provider and the
+# built-in demo MCP servers are registered. Nothing leaves the cluster and nothing is writable.
+# See docs/demo.md.
+demo:
+  enabled: true
+
+# Small footprint: one replica each, bundled PostgreSQL without backups.
+api:
+  replicaCount: 1
+  pdb:
+    enabled: false
+worker:
+  replicaCount: 1
+  concurrency: 2
+ui:
+  replicaCount: 1
+  pdb:
+    enabled: false
+postgresql:
+  persistence:
+    size: 2Gi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: demo.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    # Server-sent events (run streams) must not be buffered.
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+  tls:
+    enabled: true
+    secretName: demo-tls

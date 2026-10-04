@@ -29,6 +29,45 @@
     "defaultTopologySpread": {
       "type": "boolean"
     },
+    "demo": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "password": {
+          "type": "string",
+          "minLength": 8
+        }
+      }
+    },
+    "airgapped": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "registry": {
+          "type": "string"
+        },
+        "pullPolicy": {
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        },
+        "pullSecrets": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
     "image": {
       "type": "object",
       "additionalProperties": false,
@@ -400,27 +439,274 @@
     },
     "postgresql": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "registry": {
+              "type": "string"
+            },
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tag": {
+              "type": "string",
+              "minLength": 1
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^(sha256:[a-f0-9]{64})?$"
+            }
+          }
+        },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "existingSecret": {
+              "type": "string",
+              "pattern": "^([a-z0-9]([-a-z0-9.]*[a-z0-9])?)?$",
+              "maxLength": 253
+            },
+            "database": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]{0,62}$"
+            },
+            "migratorUser": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]{0,62}$"
+            },
+            "appUser": {
+              "type": "string",
+              "pattern": "^[a-z_][a-z0-9_]{0,62}$"
+            },
+            "keys": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "postgres": {
+                  "type": "string",
+                  "pattern": "^[-._a-zA-Z0-9]+$"
+                },
+                "app": {
+                  "type": "string",
+                  "pattern": "^[-._a-zA-Z0-9]+$"
+                },
+                "migrator": {
+                  "type": "string",
+                  "pattern": "^[-._a-zA-Z0-9]+$"
+                }
+              }
+            }
+          }
+        },
+        "persistence": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "size": {
+              "type": "string",
+              "pattern": "^[0-9]+(\\.[0-9]+)?(Ki|Mi|Gi|Ti)$"
+            },
+            "storageClass": {
+              "type": "string"
+            },
+            "accessModes": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "ReadWriteOnce",
+                  "ReadWriteOncePod",
+                  "ReadWriteMany",
+                  "ReadOnlyMany"
+                ]
+              }
+            },
+            "keep": {
+              "type": "boolean"
+            }
+          }
+        },
+        "config": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          }
+        },
+        "resources": {
+          "type": "object"
+        },
+        "runAsUser": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "serviceAnnotations": {
+          "type": "object"
+        },
+        "backup": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "schedule": {
+              "type": "string",
+              "minLength": 1
+            },
+            "retentionDays": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "timeZone": {
+              "type": "string"
+            },
+            "persistence": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "existingClaim": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?(Ki|Mi|Gi|Ti)$"
+                },
+                "storageClass": {
+                  "type": "string"
+                },
+                "keep": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "resources": {
+              "type": "object"
+            },
+            "backoffLimit": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "successfulJobsHistoryLimit": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "failedJobsHistoryLimit": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "nodeSelector": {
+          "type": "object"
+        },
+        "tolerations": {
+          "type": "array"
+        },
+        "affinity": {
+          "type": "object"
+        },
+        "priorityClassName": {
+          "type": "string"
+        },
+        "podAnnotations": {
+          "type": "object"
         }
       },
       "required": [
         "enabled"
-      ],
-      "description": "Passed to the groundhog2k/postgres subchart."
+      ]
     },
     "valkey": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "enabled": {
           "type": "boolean"
+        },
+        "image": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "registry": {
+              "type": "string"
+            },
+            "repository": {
+              "type": "string",
+              "minLength": 1
+            },
+            "tag": {
+              "type": "string",
+              "minLength": 1
+            },
+            "digest": {
+              "type": "string",
+              "pattern": "^(sha256:[a-f0-9]{64})?$"
+            }
+          }
+        },
+        "auth": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "existingSecret": {
+              "type": "string",
+              "pattern": "^([a-z0-9]([-a-z0-9.]*[a-z0-9])?)?$",
+              "maxLength": 253
+            },
+            "key": {
+              "type": "string",
+              "pattern": "^[-._a-zA-Z0-9]+$"
+            }
+          }
+        },
+        "runAsUser": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maxMemory": {
+          "type": "string",
+          "pattern": "^[0-9]+(kb|mb|gb|b)?$"
+        },
+        "resources": {
+          "type": "object"
+        },
+        "nodeSelector": {
+          "type": "object"
+        },
+        "tolerations": {
+          "type": "array"
+        },
+        "affinity": {
+          "type": "object"
+        },
+        "priorityClassName": {
+          "type": "string"
+        },
+        "podAnnotations": {
+          "type": "object"
         }
       },
       "required": [
         "enabled"
-      ],
-      "description": "Passed to the groundhog2k/valkey subchart."
+      ]
     },
     "cache": {
       "type": "object",
@@ -607,6 +893,9 @@
             "keyId": {
               "type": "string",
               "minLength": 1
+            },
+            "generate": {
+              "type": "boolean"
             }
           }
         },
@@ -938,7 +1227,10 @@
           "minimum": 0
         },
         "migrateOnStart": {
-          "type": "boolean"
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "resources": {
           "type": "object",
@@ -1538,6 +1830,37 @@
               "type": "string"
             }
           }
+        }
+      }
+    },
+    "gateway": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "parentRefs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name"
+            ]
+          }
+        },
+        "hostnames": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "tls": {
+          "type": "boolean"
+        },
+        "annotations": {
+          "type": "object"
         }
       }
     },

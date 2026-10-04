@@ -76,21 +76,35 @@ tests:
             name: OAX_DB_PASSWORD
             valueFrom: { secretKeyRef: { name: oax-db, key: password } }
 
-  - it: uses the bundled PostgreSQL service and Secret
+  - it: uses the bundled PostgreSQL service with the least-privilege role and the generated Secret
     set:
       postgresql.enabled: true
-      postgresql.userDatabase.existingSecret: oax-pg
     asserts:
       - contains:
           path: 'spec.template.spec.containers[0].env'
           content:
             name: OAX_DATABASE_URL
-            value: postgres://$(OAX_DB_USER):$(OAX_DB_PASSWORD)@rel-postgresql:5432/$(OAX_DB_NAME)?sslmode=disable
+            value: postgres://openagentix_app:$(OAX_DB_PASSWORD)@rel-open-agentix-postgresql:5432/openagentix?sslmode=disable
       - contains:
           path: 'spec.template.spec.containers[0].env'
           content:
-            name: OAX_DB_USER
-            valueFrom: { secretKeyRef: { name: oax-pg, key: user } }
+            name: OAX_DB_PASSWORD
+            valueFrom: { secretKeyRef: { name: rel-open-agentix-generated, key: app-password } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_DB_MIGRATE_ON_START, value: "true" }
+
+  - it: uses an existing Secret for the bundled PostgreSQL passwords
+    set:
+      postgresql.enabled: true
+      postgresql.auth.existingSecret: oax-pg
+      postgresql.auth.keys.app: pw-app
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DB_PASSWORD
+            valueFrom: { secretKeyRef: { name: oax-pg, key: pw-app } }
 
   - it: pins the image by digest and uses pull secrets
     set:
@@ -238,7 +252,12 @@ tests:
     asserts:
       - contains:
           path: 'spec.template.spec.containers[0].env'
-          content: { name: OAX_CACHE_URL, value: redis://rel-valkey:6379 }
+          content: { name: OAX_CACHE_URL, value: "redis://:$(OAX_VALKEY_PASSWORD)@rel-open-agentix-valkey:6379" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_VALKEY_PASSWORD
+            valueFrom: { secretKeyRef: { name: rel-open-agentix-generated, key: valkey-password } }
 
   - it: adds extra env, volumes and scheduling settings
     set:
@@ -265,11 +284,15 @@ tests:
             name: OAX_METRICS_TOKEN
             valueFrom: { secretKeyRef: { name: oax-metrics, key: token } }
 
-  - it: fails without a run-token Secret
+  - it: falls back to the generated Secret for the run token
     set:
       runToken.existingSecret: ""
     asserts:
-      - failedTemplate: { errorPattern: "runToken.existingSecret is required" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_RUN_TOKEN_SECRET
+            valueFrom: { secretKeyRef: { name: rel-open-agentix-generated, key: run-token-secret } }
 
   - it: fails without a database Secret
     set:
@@ -282,12 +305,6 @@ tests:
       externalDatabase.host: ""
     asserts:
       - failedTemplate: { errorPattern: "externalDatabase.host is required" }
-
-  - it: fails when the bundled PostgreSQL has no Secret
-    set:
-      postgresql.enabled: true
-    asserts:
-      - failedTemplate: { errorPattern: "postgresql.userDatabase.existingSecret is required" }
 
   - it: fails on incomplete OIDC, LDAP and bootstrap admin settings
     set:
@@ -304,8 +321,9 @@ tests:
   - it: fails on an incomplete bootstrap admin
     set:
       auth.bootstrapAdmin.enabled: true
+      auth.bootstrapAdmin.email: ""
     asserts:
-      - failedTemplate: { errorPattern: "auth.bootstrapAdmin.enabled requires email and existingSecret" }
+      - failedTemplate: { errorPattern: "auth.bootstrapAdmin.enabled requires an email" }
 
   - it: fails when external and bundled cache are both enabled
     set:
@@ -325,7 +343,7 @@ tests:
     set:
       api.migrateOnStart: true
     asserts:
-      - failedTemplate: { errorPattern: "api.migrateOnStart and migrations.enabled are mutually exclusive" }
+      - failedTemplate: { errorPattern: "api.migrateOnStart=true and migrations.enabled are mutually exclusive" }
 
   - it: fails when Bedrock has no region
     set:

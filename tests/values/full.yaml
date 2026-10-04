@@ -15,6 +15,7 @@ config:
     - { provider: openai, model: "gpt-*", inputPerMTok: 2.5, outputPerMTok: 10 }
   extraEnv:
     - { name: OAX_EXTRA, value: "1" }
+postgresql: { enabled: false }
 runToken: { existingSecret: oax-run-token }
 externalDatabase:
   existingSecret: oax-db

@@ -1,18 +1,8 @@
-# Minimal install: external PostgreSQL, local admin, simulated provider, no ingress.
-# Prepare the Secrets first (see README "Prepare secrets"):
-#   kubectl create secret generic oax-db --from-literal=password='<url-safe password>'
-#   kubectl create secret generic oax-run-token --from-literal=run-token-secret="$(openssl rand -hex 32)"
-#   kubectl create secret generic oax-admin --from-literal=password='<at least 12 characters>'
-externalDatabase:
-  host: postgres.databases.svc.cluster.local
-  sslmode: disable
-  existingSecret: oax-db
-
-runToken:
-  existingSecret: oax-run-token
-
+# Minimal install: nothing is required. The chart brings its own PostgreSQL, generates every
+# secret once (run token, database passwords, audit signing key, local admin password) and uses
+# the simulated model provider. Install with:
+#   helm install oax ./charts/open-agentix -n openagentix --create-namespace
+# Everything below is optional.
 auth:
   bootstrapAdmin:
-    enabled: true
     email: admin@example.com
-    existingSecret: oax-admin

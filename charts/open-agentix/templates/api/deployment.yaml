@@ -42,7 +42,7 @@ spec:
       containers:
         - name: api
           image: {{ include "open-agentix.image" (list . "api") | quote }}
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          imagePullPolicy: {{ include "open-agentix.pullPolicy" . }}
           command: ["node", "dist/main.js"]
           ports:
             - name: http

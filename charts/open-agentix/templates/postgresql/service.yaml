@@ -1,0 +1,22 @@
+{{- if .Values.postgresql.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "open-agentix.postgresql.host" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "postgresql") | nindent 4 }}
+  {{- with (merge (deepCopy .Values.postgresql.serviceAnnotations) .Values.commonAnnotations) }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: ClusterIP
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+      protocol: TCP
+  selector:
+    {{- include "open-agentix.selectorLabels" (list . "postgresql") | nindent 4 }}
+{{- end }}

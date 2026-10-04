@@ -1,0 +1,98 @@
+{{- if and .Values.postgresql.enabled .Values.postgresql.backup.enabled }}
+{{- $pg := .Values.postgresql }}
+{{- $b := $pg.backup }}
+{{- $secretName := default (include "open-agentix.generatedSecretName" .) $pg.auth.existingSecret }}
+{{- $migKey := ternary $pg.auth.keys.migrator "migrator-password" (ne $pg.auth.existingSecret "") }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "open-agentix.componentName" (list . "postgresql-backup") }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "open-agentix.labels" (list . "postgresql-backup") | nindent 4 }}
+  {{- include "open-agentix.annotations" . | nindent 2 }}
+spec:
+  schedule: {{ $b.schedule | quote }}
+  {{- with $b.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: {{ $b.successfulJobsHistoryLimit }}
+  failedJobsHistoryLimit: {{ $b.failedJobsHistoryLimit }}
+  jobTemplate:
+    spec:
+      backoffLimit: {{ $b.backoffLimit }}
+      activeDeadlineSeconds: 3600
+      template:
+        metadata:
+          labels:
+            {{- include "open-agentix.labels" (list . "postgresql-backup") | nindent 12 }}
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          {{- include "open-agentix.imagePullSecrets" . | nindent 10 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: {{ $pg.runAsUser }}
+            runAsGroup: {{ $pg.runAsUser }}
+            fsGroup: {{ $pg.runAsUser }}
+            seccompProfile:
+              type: RuntimeDefault
+          {{- with $pg.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $pg.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          containers:
+            - name: backup
+              image: {{ include "open-agentix.serviceImage" (list . "postgresql") | quote }}
+              imagePullPolicy: {{ include "open-agentix.pullPolicy" . }}
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  ts=$(date -u +%Y%m%dT%H%M%SZ)
+                  out="/backups/${PGDATABASE}-${ts}.dump"
+                  pg_dump --format=custom --no-owner --file "${out}.partial"
+                  mv "${out}.partial" "${out}"
+                  echo "wrote ${out} ($(wc -c < "${out}") bytes)"
+                  {{- if gt (int $b.retentionDays) 0 }}
+                  find /backups -maxdepth 1 -name "${PGDATABASE}-*.dump" -mtime "+{{ $b.retentionDays }}" -print -delete
+                  {{- end }}
+              env:
+                - name: PGHOST
+                  value: {{ include "open-agentix.postgresql.host" . | quote }}
+                - name: PGPORT
+                  value: "5432"
+                - name: PGUSER
+                  value: {{ $pg.auth.migratorUser | quote }}
+                - name: PGDATABASE
+                  value: {{ $pg.auth.database | quote }}
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: {{ $secretName | quote }}, key: {{ $migKey | quote }} } }
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                runAsNonRoot: true
+                capabilities:
+                  drop: ["ALL"]
+                seccompProfile:
+                  type: RuntimeDefault
+              resources:
+                {{- toYaml $b.resources | nindent 16 }}
+              volumeMounts:
+                - name: backups
+                  mountPath: /backups
+                - name: tmp
+                  mountPath: /tmp
+          volumes:
+            - name: backups
+              persistentVolumeClaim:
+                claimName: {{ default (include "open-agentix.componentName" (list . "postgresql-backup")) $b.persistence.existingClaim }}
+            - name: tmp
+              emptyDir:
+                sizeLimit: 64Mi
+{{- end }}

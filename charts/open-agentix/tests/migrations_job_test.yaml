@@ -68,9 +68,18 @@ tests:
   - it: runs post-install with the bundled PostgreSQL
     set:
       postgresql.enabled: true
-      postgresql.userDatabase.existingSecret: oax-pg
     asserts:
       - equal: { path: 'metadata.annotations["helm.sh/hook"]', value: "post-install,pre-upgrade" }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DB_PASSWORD
+            valueFrom: { secretKeyRef: { name: rel-open-agentix-generated, key: migrator-password } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_DATABASE_URL
+            value: postgres://openagentix_migrator:$(OAX_DB_PASSWORD)@rel-open-agentix-postgresql:5432/openagentix?sslmode=disable
 
   - it: honours explicit hook events
     set:

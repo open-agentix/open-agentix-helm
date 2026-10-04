@@ -1,7 +1,10 @@
-# chart-testing: smallest valid configuration (external database).
-runToken:
-  existingSecret: oax-run-token
-externalDatabase:
-  host: postgres.oax-ci-db.svc.cluster.local
-  sslmode: disable
-  existingSecret: oax-db
+# chart-testing: the default install (bundled PostgreSQL, generated secrets, no ingress).
+# Only the replica counts are reduced for a small kind cluster.
+api:
+  replicaCount: 1
+  pdb:
+    enabled: false
+ui:
+  replicaCount: 1
+  pdb:
+    enabled: false

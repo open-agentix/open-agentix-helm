@@ -1,0 +1,50 @@
+suite: demo and air-gapped validation
+templates:
+  - api/deployment.yaml
+values:
+  - values/base.yaml
+release:
+  name: rel
+  namespace: oax
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
+tests:
+  - it: demo mode rejects real identity providers and Bedrock
+    set:
+      demo.enabled: true
+      auth.ldap.enabled: true
+      auth.ldap.url: ldaps://ldap.example.com:636
+      auth.ldap.userBaseDn: ou=p
+    asserts:
+      - failedTemplate: { errorPattern: "demo.enabled is incompatible with auth.oidc and auth.ldap" }
+
+  - it: demo mode rejects Bedrock
+    set:
+      demo.enabled: true
+      aws.region: eu-central-1
+      aws.bedrock.enabled: true
+    asserts:
+      - failedTemplate: { errorPattern: "incompatible with aws.bedrock" }
+
+  - it: air-gapped mode requires NetworkPolicies
+    set:
+      airgapped.enabled: true
+      networkPolicy.enabled: false
+    asserts:
+      - failedTemplate: { errorPattern: "airgapped.enabled requires networkPolicy.enabled" }
+
+  - it: air-gapped mode rejects an outbound proxy
+    set:
+      airgapped.enabled: true
+      proxy.httpsProxy: http://proxy:3128
+    asserts:
+      - failedTemplate: { errorPattern: "does not allow an outbound proxy" }
+
+  - it: air-gapped mode rejects egress rules that open the internet
+    set:
+      airgapped.enabled: true
+      networkPolicy.egress.providers:
+        - to: [{ ipBlock: { cidr: 0.0.0.0/0 } }]
+    asserts:
+      - failedTemplate: { errorPattern: "open the internet" }

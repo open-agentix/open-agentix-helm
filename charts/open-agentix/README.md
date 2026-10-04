@@ -6,9 +6,9 @@
 Deploys the open-agentix control node (API, optional UI), the worker and the database migrations
 onto Kubernetes (including Amazon EKS) with hardened defaults: PodSecurity `restricted`, read-only
 root file systems, default-deny NetworkPolicies with explicit egress, and every secret taken from
-an existing Kubernetes Secret.
+an existing Kubernetes Secret (or is generated once by the chart).
 
-- Chart version: `0.1.0` · App version: `0.1.0` · Kubernetes `>= 1.27`
+- Chart version: `0.2.0` · App version: `0.1.0` · Kubernetes `>= 1.27`
 - Installation, upgrades and the security model: see the
   [repository README](https://github.com/open-agentix/open-agentix-helm#readme) and `docs/`.
 - Application configuration contract: platform
@@ -17,14 +17,12 @@ an existing Kubernetes Secret.
 ## Quick start
 
 ```bash
-kubectl create namespace openagentix
-kubectl -n openagentix create secret generic oax-db --from-literal=password='<url-safe password>'
-kubectl -n openagentix create secret generic oax-run-token --from-literal=run-token-secret="$(openssl rand -hex 32)"
-helm install oax ./charts/open-agentix -n openagentix \
-  --set externalDatabase.host=postgres.example.internal \
-  --set externalDatabase.existingSecret=oax-db \
-  --set runToken.existingSecret=oax-run-token
+helm install oax ./charts/open-agentix -n openagentix --create-namespace
 ```
+
+That is the whole install: PostgreSQL is included, all secrets are generated. For production use an
+external database (`--set postgresql.enabled=false --set externalDatabase.host=...`), see
+[docs/install.md](https://github.com/open-agentix/open-agentix-helm/blob/main/docs/install.md).
 
 ## Values
 
@@ -40,7 +38,13 @@ Generated from the `# --` comments in `values.yaml` by `scripts/values-table.py`
 | `commonAnnotations` | object | `{}` | Annotations added to every resource. |
 | `global` | object | `{}` | Global values shared with subcharts (Helm convention). |
 | `defaultTopologySpread` | bool | `true` | Render soft topology spread (zone + node) for components whose `topologySpreadConstraints` list is empty. |
-| `image.registry` | string | `"ghcr.io"` | Registry of the platform images. |
+| `demo.enabled` | bool | `false` | Enable demo mode: `OAX_DEMO_MODE=true` (the platform seeds its deterministic data set on first start and the API becomes read-only except sign-in and side-effect-free checks), the simulated provider only, the built-in demo MCP servers on the worker and no bootstrap admin. Incompatible with real providers, Bedrock, OIDC and LDAP. |
+| `demo.password` | string | `"demo-password-2026"` | `OAX_DEMO_PASSWORD`: shared password of the fake demo users (`admin@example.org`, ...). Not a secret. |
+| `airgapped.enabled` | bool | `false` | Set `OAX_AIRGAPPED=true`, never pull images (`pullPolicy`), require NetworkPolicies and reject any egress rule that opens the internet (`0.0.0.0/0`, `::/0`) or an outbound proxy. |
+| `airgapped.registry` | string | `""` | Private registry that replaces the registry of every image of the chart (platform images, PostgreSQL, Valkey). Mirror the images with the same repository paths. |
+| `airgapped.pullPolicy` | string | `"IfNotPresent"` | Image pull policy applied to every image while `airgapped.enabled` (`IfNotPresent` uses images preloaded on the nodes; `Always` pulls from the private registry). |
+| `airgapped.pullSecrets` | list | `[]` | Additional image pull secrets (merged with `image.pullSecrets`). |
+| `image.registry` | string | `"ghcr.io"` | Registry of the platform images (overridden by `airgapped.registry`). |
 | `image.pullPolicy` | string | `"IfNotPresent"` | Image pull policy for all platform images. |
 | `image.pullSecrets` | list | `[]` | Names of existing image pull secrets (`kubernetes.io/dockerconfigjson`). |
 | `image.api.repository` | string | `"open-agentix/open-agentix-api"` | Repository of the control node image (also runs the migrations Job). |
@@ -87,29 +91,67 @@ Generated from the `# --` comments in `values.yaml` by `scripts/values-table.py`
 | `externalDatabase.migrations.existingSecret` | string | `""` | Existing Secret for the migration role. Empty = `externalDatabase.existingSecret`. |
 | `externalDatabase.migrations.passwordKey` | string | `"password"` | Key of the migration password. |
 | `externalDatabase.migrations.urlKey` | string | `""` | Key with a complete URL for the migration role. |
-| `postgresql.enabled` | bool | `false` | Deploy the bundled PostgreSQL instead of using `externalDatabase`. |
-| `postgresql.image.tag` | string | `"16.10-alpine"` | PostgreSQL image tag (major 16 like the platform's reference setup). |
-| `postgresql.userDatabase.existingSecret` | string | `""` | Existing Secret with keys `database`, `user`, `password` (create it before install). |
-| `postgresql.userDatabase.name.secretKey` | string | `"database"` | Key of the database name. |
-| `postgresql.userDatabase.user.secretKey` | string | `"user"` | Key of the user name. |
-| `postgresql.userDatabase.password.secretKey` | string | `"password"` | Key of the password (URL-safe). |
-| `postgresql.settings.existingSecret` | string | `""` | Existing Secret with the superuser password (key `superuser-password`). |
-| `postgresql.settings.superuserPassword.secretKey` | string | `"superuser-password"` | Key of the superuser password. |
-| `postgresql.storage.requestedSize` | string | `"8Gi"` | Size of the data volume. |
-| `postgresql.storage.className` | string | `""` | StorageClass (empty = cluster default). |
-| `postgresql.storage.keepPvc` | bool | `true` | Keep the data PVC on `helm uninstall`. |
-| `postgresql.podSecurityContext` | object | `{"seccompProfile": {"type": "RuntimeDefault"}}` | Adds seccomp RuntimeDefault so the pod passes PodSecurity `restricted`. |
-| `postgresql.securityContext` | object | `{"seccompProfile": {"type": "RuntimeDefault"}}` | Container seccomp profile (merged with the subchart's restricted defaults). |
+| `postgresql.enabled` | bool | `true` | Deploy the bundled PostgreSQL. Set to false to use `externalDatabase`. |
+| `postgresql.image.registry` | string | `"docker.io"` | Registry (overridden by `airgapped.registry`). |
+| `postgresql.image.repository` | string | `"library/postgres"` | Repository. |
+| `postgresql.image.tag` | string | `"16.15-alpine"` | Tag (major 16 like the platform's reference setup). |
+| `postgresql.image.digest` | string | `"sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea"` | Digest of the multi-arch index (`sha256:...`). Pins the image; empty = tag only. |
+| `postgresql.auth.existingSecret` | string | `""` | Existing Secret with the passwords (keys below). Empty = the chart generates them once (random, kept across upgrades via `lookup`) in the Secret `<fullname>-generated`. |
+| `postgresql.auth.database` | string | `"openagentix"` | Database name. |
+| `postgresql.auth.migratorUser` | string | `"openagentix_migrator"` | Owner role used by the migrations Job (creates and alters the schema). |
+| `postgresql.auth.appUser` | string | `"openagentix_app"` | Least-privilege role used by api and worker (no DDL). |
+| `postgresql.auth.keys.postgres` | string | `"postgres-password"` | Key of the superuser (`postgres`) password. Must be URL-safe. |
+| `postgresql.auth.keys.app` | string | `"app-password"` | Key of the application role password. Must be URL-safe. |
+| `postgresql.auth.keys.migrator` | string | `"migrator-password"` | Key of the migrator role password. Must be URL-safe. |
+| `postgresql.persistence.enabled` | bool | `true` | Persist the data directory on a PVC (false = emptyDir, data is lost with the pod). |
+| `postgresql.persistence.size` | string | `"8Gi"` | Size of the data volume. |
+| `postgresql.persistence.storageClass` | string | `""` | StorageClass (empty = cluster default). |
+| `postgresql.persistence.accessModes` | list | `["ReadWriteOnce"]` | Access modes. |
+| `postgresql.persistence.keep` | bool | `true` | Keep the data PVC when the release or the StatefulSet is deleted (retention policy `Retain`). |
+| `postgresql.config` | object | `{"max_connections": "200"}` | Extra `postgresql.conf` settings passed as `-c key=value` (e.g. `max_connections: "200"`). |
+| `postgresql.resources` | object | `{"requests": {"cpu": "100m", "memory": "256Mi"}, "limits": {"memory": "1Gi"}}` | Resources. |
+| `postgresql.runAsUser` | int | `70` | UID/GID of the `postgres` user in the alpine image. |
+| `postgresql.terminationGracePeriodSeconds` | int | `60` | Termination grace period (clean shutdown checkpoint). |
+| `postgresql.podAnnotations` | object | `{}` | Pod annotations. |
+| `postgresql.nodeSelector` | object | `{}` | Node selector. |
+| `postgresql.tolerations` | list | `[]` | Tolerations. |
+| `postgresql.affinity` | object | `{}` | Affinity. |
+| `postgresql.priorityClassName` | string | `""` | Priority class. |
+| `postgresql.serviceAnnotations` | object | `{}` | Service annotations. |
+| `postgresql.backup.enabled` | bool | `false` | Create a CronJob that writes `pg_dump -Fc` archives to a PVC. |
+| `postgresql.backup.schedule` | string | `"17 2 * * *"` | Cron schedule. |
+| `postgresql.backup.retentionDays` | int | `14` | Delete archives older than this many days (0 = keep all). |
+| `postgresql.backup.timeZone` | string | `""` | Time zone of the schedule (empty = the cluster's). |
+| `postgresql.backup.persistence.existingClaim` | string | `""` | Use an existing PVC for the archives (empty = the chart creates one). |
+| `postgresql.backup.persistence.size` | string | `"10Gi"` | Size of the backup volume. |
+| `postgresql.backup.persistence.storageClass` | string | `""` | StorageClass (empty = cluster default). |
+| `postgresql.backup.persistence.keep` | bool | `true` | Keep the backup PVC on `helm uninstall`. |
+| `postgresql.backup.resources` | object | `{"requests": {"cpu": "50m", "memory": "64Mi"}, "limits": {"memory": "512Mi"}}` | Resources of the backup job. |
+| `postgresql.backup.backoffLimit` | int | `1` | Job backoffLimit. |
+| `postgresql.backup.successfulJobsHistoryLimit` | int | `3` | Successful jobs kept. |
+| `postgresql.backup.failedJobsHistoryLimit` | int | `3` | Failed jobs kept. |
 | `cache.enabled` | bool | `false` | Use an external Valkey/Redis (`OAX_CACHE_URL`). |
 | `cache.url` | string | `""` | Non-secret URL (`redis://host:6379`) when the cache has no password. |
 | `cache.existingSecret` | string | `""` | Existing Secret holding the URL (use when it contains a password). |
 | `cache.urlKey` | string | `"url"` | Key of the URL in `existingSecret`. |
-| `valkey.enabled` | bool | `false` | Deploy the bundled Valkey. |
-| `valkey.podSecurityContext` | object | `{"seccompProfile": {"type": "RuntimeDefault"}}` | Adds seccomp RuntimeDefault so the pod passes PodSecurity `restricted`. |
-| `valkey.securityContext` | object | `{"seccompProfile": {"type": "RuntimeDefault"}}` | Container seccomp profile. |
-| `auth.bootstrapAdmin.enabled` | bool | `false` | Create a local admin when the user table is empty. |
-| `auth.bootstrapAdmin.email` | string | `""` | `OAX_BOOTSTRAP_ADMIN_EMAIL`. |
-| `auth.bootstrapAdmin.existingSecret` | string | `""` | Existing Secret with the password (>= 12 characters). |
+| `valkey.enabled` | bool | `false` | Deploy the bundled Valkey (shared cache and invalidation across replicas). |
+| `valkey.image.registry` | string | `"docker.io"` | Registry (overridden by `airgapped.registry`). |
+| `valkey.image.repository` | string | `"valkey/valkey"` | Repository. |
+| `valkey.image.tag` | string | `"8.0.11-alpine"` | Tag. |
+| `valkey.image.digest` | string | `"sha256:fd348c9b6999ef15719a1d6b43b810ee1bf2068ded2d7ab6f6dd15943841f28b"` | Digest of the multi-arch index. |
+| `valkey.auth.existingSecret` | string | `""` | Existing Secret with the password (empty = generated once in `<fullname>-generated`). |
+| `valkey.auth.key` | string | `"valkey-password"` | Key of the password (URL-safe). |
+| `valkey.runAsUser` | int | `999` | UID/GID of the `valkey` user in the image. |
+| `valkey.maxMemory` | string | `"128mb"` | `--maxmemory` (the eviction policy is `allkeys-lru`). |
+| `valkey.resources` | object | `{"requests": {"cpu": "25m", "memory": "64Mi"}, "limits": {"memory": "192Mi"}}` | Resources. |
+| `valkey.podAnnotations` | object | `{}` | Pod annotations. |
+| `valkey.nodeSelector` | object | `{}` | Node selector. |
+| `valkey.tolerations` | list | `[]` | Tolerations. |
+| `valkey.affinity` | object | `{}` | Affinity. |
+| `valkey.priorityClassName` | string | `""` | Priority class. |
+| `auth.bootstrapAdmin.enabled` | bool | `true` | Create a local admin when the user table is empty. Ignored with `demo.enabled`. |
+| `auth.bootstrapAdmin.email` | string | `"admin@openagentix.local"` | `OAX_BOOTSTRAP_ADMIN_EMAIL`. |
+| `auth.bootstrapAdmin.existingSecret` | string | `""` | Existing Secret with the password (>= 12 characters). Empty = generated once in `<fullname>-generated` (read it with the command printed by `helm install`). |
 | `auth.bootstrapAdmin.passwordKey` | string | `"password"` | Key of the password. |
 | `auth.oidc.enabled` | bool | `false` | Enable OIDC login. |
 | `auth.oidc.issuer` | string | `""` | `OAX_OIDC_ISSUER`. |
@@ -130,10 +172,11 @@ Generated from the `# --` comments in `values.yaml` by `scripts/values-table.py`
 | `auth.ldap.tlsRejectUnauthorized` | bool | `true` | `OAX_LDAP_TLS_REJECT_UNAUTHORIZED`. |
 | `auth.ldap.existingSecret` | string | `""` | Existing Secret with the bind password. |
 | `auth.ldap.bindPasswordKey` | string | `"bind-password"` | Key of the bind password. |
-| `runToken.existingSecret` | string | `""` | Existing Secret with the run-token HMAC key (>= 32 characters). Required. |
+| `runToken.existingSecret` | string | `""` | Existing Secret with the run-token HMAC key (>= 32 characters). Empty = generated once in `<fullname>-generated`. |
 | `runToken.key` | string | `"run-token-secret"` | Key in the Secret. |
 | `runToken.ttlSeconds` | int | `14400` | `OAX_RUN_TOKEN_TTL_SECONDS`. |
-| `audit.signingKey.existingSecret` | string | `""` | Existing Secret with the Ed25519 private key (PKCS#8 PEM) for audit checkpoints. Empty = checkpoints are not signed (not recommended for production). |
+| `audit.signingKey.existingSecret` | string | `""` | Existing Secret with the Ed25519 private key (PKCS#8 PEM) for audit checkpoints. Empty = generated once in `<fullname>-generated` (see `generate`). |
+| `audit.signingKey.generate` | bool | `true` | Generate an Ed25519 key when no `existingSecret` is set (false = unsigned checkpoints). |
 | `audit.signingKey.key` | string | `"ed25519.pem"` | Key in the Secret. |
 | `audit.signingKey.keyId` | string | `"default"` | `OAX_AUDIT_SIGNING_KEY_ID`. |
 | `audit.publicKeys` | object | `{}` | `OAX_AUDIT_PUBLIC_KEYS`: `{keyId: publicKeyPem}` of rotated keys (public, not secret). |
@@ -181,7 +224,7 @@ Generated from the `# --` comments in `values.yaml` by `scripts/values-table.py`
 | `containerSecurityContext.capabilities.drop` | list | `["ALL"]` | Dropped capabilities. |
 | `containerSecurityContext.seccompProfile.type` | string | `"RuntimeDefault"` | Seccomp profile. |
 | `api.replicaCount` | int | `2` | Replicas when autoscaling is off. |
-| `api.migrateOnStart` | bool | `false` | `OAX_DB_MIGRATE_ON_START` for the API. Keep false when `migrations.enabled`. |
+| `api.migrateOnStart` | null | `null` | `OAX_DB_MIGRATE_ON_START` for the API. `null` = automatic: true with the bundled PostgreSQL (the migrations Job then runs post-install, so `helm install --wait` needs the API to migrate itself; migrations are advisory-locked, so both can race safely), false otherwise. |
 | `api.resources` | object | `{"requests": {"cpu": "100m", "memory": "256Mi"}, "limits": {"memory": "512Mi"}}` | Resources. |
 | `api.service.type` | string | `"ClusterIP"` | Service type. |
 | `api.service.port` | int | `80` | Service port. |
@@ -236,7 +279,7 @@ Generated from the `# --` comments in `values.yaml` by `scripts/values-table.py`
 | `worker.extraEnv` | list | `[]` | Extra env vars. |
 | `worker.extraVolumes` | list | `[]` | Extra volumes. |
 | `worker.extraVolumeMounts` | list | `[]` | Extra volume mounts. |
-| `ui.enabled` | bool | `false` | Deploy the static UI (disabled until the UI image is published). |
+| `ui.enabled` | bool | `true` | Deploy the static UI. |
 | `ui.replicaCount` | int | `2` | Replicas. |
 | `ui.containerPort` | int | `8080` | Container port of the nginx-unprivileged based image. |
 | `ui.runAsUser` | int | `101` | UID/GID of the UI container (nginx-unprivileged uses 101). |
@@ -270,6 +313,11 @@ Generated from the `# --` comments in `values.yaml` by `scripts/values-table.py`
 | `ingress.pathType` | string | `"Prefix"` | pathType of the generated paths. |
 | `ingress.tls.enabled` | bool | `false` | Terminate TLS at the ingress. |
 | `ingress.tls.secretName` | string | `""` | TLS Secret (empty with ALB/ACM or cert-manager annotations). |
+| `gateway.enabled` | bool | `false` | Create an HTTPRoute. Mutually exclusive with `ingress.enabled`. |
+| `gateway.parentRefs` | list | `[]` | `parentRefs` of the HTTPRoute (the Gateway and optionally the listener `sectionName`). |
+| `gateway.hostnames` | list | `[]` | Host names (empty = `ingress.host`). |
+| `gateway.tls` | bool | `false` | The Gateway terminates TLS (only used to build `https://` public URLs). |
+| `gateway.annotations` | object | `{}` | Annotations of the HTTPRoute. |
 | `networkPolicy.enabled` | bool | `true` | Create NetworkPolicies: default deny for all chart pods plus the explicit rules below. |
 | `networkPolicy.dns.enabled` | bool | `true` | Allow DNS to the cluster resolver. |
 | `networkPolicy.dns.to` | list | `[{"namespaceSelector": {"matchLabels": {"kubernetes.io/metadata.name": "kube-...` | Peers of the DNS rule. |

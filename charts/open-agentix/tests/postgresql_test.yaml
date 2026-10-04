@@ -1,0 +1,118 @@
+suite: bundled postgresql
+templates:
+  - postgresql/statefulset.yaml
+  - postgresql/service.yaml
+  - postgresql/configmap.yaml
+release:
+  name: rel
+  namespace: oax
+chart:
+  version: 0.2.0
+  appVersion: 0.1.0
+capabilities:
+  majorVersion: 1
+  minorVersion: 34
+tests:
+  - it: is enabled by default and renders a StatefulSet, Service and init ConfigMap
+    set:
+      runToken.existingSecret: x
+    asserts:
+      - isKind: { of: StatefulSet }
+        template: postgresql/statefulset.yaml
+      - isKind: { of: Service }
+        template: postgresql/service.yaml
+      - isKind: { of: ConfigMap }
+        template: postgresql/configmap.yaml
+      - equal: { path: metadata.name, value: rel-open-agentix-postgresql }
+        template: postgresql/statefulset.yaml
+
+  - it: renders nothing with an external database
+    set:
+      postgresql.enabled: false
+      externalDatabase.host: db.example.com
+      externalDatabase.existingSecret: oax-db
+    asserts:
+      - hasDocuments: { count: 0 }
+
+  - it: pins the official image by digest and runs hardened for PodSecurity restricted
+    template: postgresql/statefulset.yaml
+    asserts:
+      - matchRegex:
+          path: 'spec.template.spec.containers[0].image'
+          pattern: '^docker\.io/library/postgres:16\.[0-9]+-alpine@sha256:[a-f0-9]{64}$'
+      - equal: { path: spec.template.spec.securityContext.runAsNonRoot, value: true }
+      - equal: { path: spec.template.spec.securityContext.runAsUser, value: 70 }
+      - equal: { path: spec.template.spec.securityContext.fsGroup, value: 70 }
+      - equal: { path: spec.template.spec.securityContext.seccompProfile.type, value: RuntimeDefault }
+      - equal: { path: spec.template.spec.automountServiceAccountToken, value: false }
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.allowPrivilegeEscalation', value: false }
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.readOnlyRootFilesystem', value: true }
+      - equal: { path: 'spec.template.spec.containers[0].securityContext.capabilities.drop', value: ["ALL"] }
+      - exists: { path: 'spec.template.spec.containers[0].resources.limits.memory' }
+      - exists: { path: 'spec.template.spec.containers[0].startupProbe' }
+      - exists: { path: 'spec.template.spec.containers[0].readinessProbe' }
+      - exists: { path: 'spec.template.spec.containers[0].livenessProbe' }
+
+  - it: keeps the data on a PVC that survives deletion
+    template: postgresql/statefulset.yaml
+    asserts:
+      - equal: { path: 'spec.volumeClaimTemplates[0].spec.resources.requests.storage', value: 8Gi }
+      - equal: { path: spec.persistentVolumeClaimRetentionPolicy.whenDeleted, value: Retain }
+      - equal: { path: spec.persistentVolumeClaimRetentionPolicy.whenScaled, value: Retain }
+      - contains:
+          path: 'spec.template.spec.containers[0].volumeMounts'
+          content: { name: data, mountPath: /var/lib/postgresql/data }
+
+  - it: reads the passwords from the generated Secret
+    template: postgresql/statefulset.yaml
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom: { secretKeyRef: { name: rel-open-agentix-generated, key: postgres-password } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_APP_PASSWORD
+            valueFrom: { secretKeyRef: { name: rel-open-agentix-generated, key: app-password } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_MIGRATOR_PASSWORD
+            valueFrom: { secretKeyRef: { name: rel-open-agentix-generated, key: migrator-password } }
+
+  - it: reads the passwords from an existing Secret
+    template: postgresql/statefulset.yaml
+    set:
+      postgresql.auth.existingSecret: oax-pg
+      postgresql.auth.keys.postgres: su
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: POSTGRES_PASSWORD
+            valueFrom: { secretKeyRef: { name: oax-pg, key: su } }
+
+  - it: supports an emptyDir without persistence and extra server settings
+    template: postgresql/statefulset.yaml
+    set:
+      postgresql.persistence.enabled: false
+      postgresql.config.max_connections: "50"
+    asserts:
+      - notExists: { path: spec.volumeClaimTemplates }
+      - contains: { path: spec.template.spec.volumes, content: { name: data, emptyDir: {} } }
+      - equal: { path: 'spec.template.spec.containers[0].args', value: ["-c", "max_connections=50"] }
+
+  - it: exposes a ClusterIP Service on 5432
+    template: postgresql/service.yaml
+    asserts:
+      - equal: { path: spec.type, value: ClusterIP }
+      - equal: { path: 'spec.ports[0].port', value: 5432 }
+
+  - it: creates the owner and the least-privilege role on first start
+    template: postgresql/configmap.yaml
+    asserts:
+      - matchRegex: { path: 'data["10-roles.sh"]', pattern: 'CREATE ROLE :"migrator_user" LOGIN' }
+      - matchRegex: { path: 'data["10-roles.sh"]', pattern: 'CREATE DATABASE :"dbname" OWNER :"migrator_user"' }
+      - matchRegex: { path: 'data["10-roles.sh"]', pattern: 'migrator_user="openagentix_migrator"' }
