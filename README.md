@@ -15,7 +15,7 @@ agentix-zero is the project's agent account; humans review and own every decisio
 
 | Chart | Version | App version | Path |
 | --- | --- | --- | --- |
-| `open-agentix` | 0.2.0 | 0.1.0 | [`charts/open-agentix`](charts/open-agentix) |
+| `open-agentix` | 0.2.1 | 0.1.0 | [`charts/open-agentix`](charts/open-agentix) |
 
 ## One command
 
@@ -152,6 +152,8 @@ scripts/test-local.sh          # runs every check whose tools are installed, rep
 CI (GitHub-hosted runners, actions pinned by commit SHA) runs `helm lint`, `helm template` with
 golden files, kubeconform with pinned schemas, helm-unittest, a template coverage gate (>= 80 %)
 and chart-testing. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Questions and discussion: [GitHub Discussions](https://github.com/open-agentix/open-agentix-helm/discussions) and [Issues](https://github.com/open-agentix/open-agentix-helm/issues). General contact: info@openagentix.si.
 
 ## License
 

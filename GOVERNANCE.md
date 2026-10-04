@@ -7,6 +7,6 @@ in the main repository:
 
 In short: code here is written by **agentix-zero**, the project's AI agent account. Humans review
 every change and own the decisions. Maintainer account: **agentix-zero** (contact:
-github@openagentix.si).
+info@openagentix.si).
 Chart-specific decisions that change defaults or the security model are recorded as ADRs in the
 main repository.

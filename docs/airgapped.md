@@ -31,7 +31,7 @@ PostgreSQL and Valkey, and in the platform release notes for the platform images
 ```bash
 REG=registry.internal.example
 VER=0.1.0
-helm package charts/open-agentix                       # open-agentix-0.2.0.tgz, no dependencies
+helm package charts/open-agentix                       # open-agentix-0.2.1.tgz, no dependencies
 
 # Mirror with skopeo (or crane / oras). --all keeps the multi-arch index, so digests are unchanged.
 skopeo copy --all docker://ghcr.io/open-agentix/open-agentix-api:$VER    docker://$REG/open-agentix/open-agentix-api:$VER
@@ -62,7 +62,7 @@ digests stay valid against the mirror. Verify with
 ## Install
 
 ```bash
-helm install oax open-agentix-0.2.0.tgz -n openagentix --create-namespace -f values-airgapped.yaml
+helm install oax open-agentix-0.2.1.tgz -n openagentix --create-namespace -f values-airgapped.yaml
 ```
 
 Offline notes:

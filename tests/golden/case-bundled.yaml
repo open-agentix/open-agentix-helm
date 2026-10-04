@@ -6,7 +6,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -79,7 +79,7 @@ metadata:
   name: oax-open-agentix-default-deny
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/version: "0.1.0"
@@ -101,7 +101,7 @@ metadata:
   name: oax-open-agentix-migrations
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: migrations
@@ -147,7 +147,7 @@ metadata:
   name: oax-open-agentix-postgresql-backup
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql-backup
@@ -195,7 +195,7 @@ metadata:
   name: oax-open-agentix-postgresql
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql
@@ -244,7 +244,7 @@ metadata:
   name: oax-open-agentix-ui
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
@@ -278,7 +278,7 @@ metadata:
   name: oax-open-agentix-valkey
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: valkey
@@ -317,7 +317,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -382,7 +382,7 @@ metadata:
   name: oax-open-agentix-ui
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
@@ -404,7 +404,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -420,7 +420,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -436,7 +436,7 @@ metadata:
   name: oax-open-agentix-generated
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: generated
@@ -462,7 +462,7 @@ metadata:
   name: oax-open-agentix-postgresql-init
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql
@@ -500,7 +500,7 @@ metadata:
   name: oax-open-agentix-postgresql-backup
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql-backup
@@ -522,7 +522,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -548,7 +548,7 @@ metadata:
   name: oax-open-agentix-postgresql
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql
@@ -574,7 +574,7 @@ metadata:
   name: oax-open-agentix-ui
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
@@ -600,7 +600,7 @@ metadata:
   name: oax-open-agentix-valkey
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: valkey
@@ -627,7 +627,7 @@ metadata:
   name: oax-open-agentix-api
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
@@ -651,7 +651,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.2.0
+        helm.sh/chart: open-agentix-0.2.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: api
@@ -830,7 +830,7 @@ metadata:
   name: oax-open-agentix-ui
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
@@ -849,7 +849,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.2.0
+        helm.sh/chart: open-agentix-0.2.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: ui
@@ -938,7 +938,7 @@ metadata:
   name: oax-open-agentix-valkey
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: valkey
@@ -959,7 +959,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.2.0
+        helm.sh/chart: open-agentix-0.2.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: valkey
@@ -1034,7 +1034,7 @@ metadata:
   name: oax-open-agentix-worker
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
@@ -1058,7 +1058,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.2.0
+        helm.sh/chart: open-agentix-0.2.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: worker
@@ -1222,7 +1222,7 @@ metadata:
   name: oax-open-agentix-postgresql
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql
@@ -1247,7 +1247,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.2.0
+        helm.sh/chart: open-agentix-0.2.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: postgresql
@@ -1363,7 +1363,7 @@ metadata:
   name: oax-open-agentix-postgresql-backup
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql-backup
@@ -1383,7 +1383,7 @@ spec:
       template:
         metadata:
           labels:
-            helm.sh/chart: open-agentix-0.2.0
+            helm.sh/chart: open-agentix-0.2.1
             app.kubernetes.io/name: open-agentix
             app.kubernetes.io/instance: oax
             app.kubernetes.io/component: postgresql-backup
@@ -1460,7 +1460,7 @@ metadata:
   name: oax-open-agentix-migrations
   namespace: openagentix
   labels:
-    helm.sh/chart: open-agentix-0.2.0
+    helm.sh/chart: open-agentix-0.2.1
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: migrations
@@ -1478,7 +1478,7 @@ spec:
   template:
     metadata:
       labels:
-        helm.sh/chart: open-agentix-0.2.0
+        helm.sh/chart: open-agentix-0.2.1
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: migrations

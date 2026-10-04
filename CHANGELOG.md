@@ -6,6 +6,13 @@ All notable changes to the charts in this repository are documented here. The fo
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-04
+
+### Changed
+
+- Maintainer contact in `Chart.yaml` and `GOVERNANCE.md` is now `info@openagentix.si`; questions go to
+  GitHub Discussions and Issues, vulnerabilities to private vulnerability reporting.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added
@@ -85,6 +92,7 @@ First release of the `open-agentix` chart (appVersion 0.1.0).
 - Strict `values.schema.json`, example values (minimal, EKS, air-gapped, homelab), helm-unittest
   suites with a template coverage gate, golden-file and kubeconform checks, CI pipeline.
 
-[Unreleased]: https://github.com/open-agentix/open-agentix-helm/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/open-agentix/open-agentix-helm/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/open-agentix/open-agentix-helm/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/open-agentix/open-agentix-helm/compare/v0.1.1...v0.2.0
 [0.1.0]: https://github.com/open-agentix/open-agentix-helm/releases/tag/v0.1.0
