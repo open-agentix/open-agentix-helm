@@ -153,6 +153,8 @@ CI (GitHub-hosted runners, actions pinned by commit SHA) runs `helm lint`, `helm
 golden files, kubeconform with pinned schemas, helm-unittest, a template coverage gate (>= 80 %)
 and chart-testing. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
+Questions and discussion: [GitHub Discussions](https://github.com/open-agentix/open-agentix-helm/discussions) and [Issues](https://github.com/open-agentix/open-agentix-helm/issues). General contact: info@openagentix.si.
+
 ## License
 
 [Apache-2.0](LICENSE)
