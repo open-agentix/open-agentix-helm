@@ -8,7 +8,7 @@ onto Kubernetes (including Amazon EKS) with hardened defaults: PodSecurity `rest
 root file systems, default-deny NetworkPolicies with explicit egress, and every secret taken from
 an existing Kubernetes Secret (or is generated once by the chart).
 
-- Chart version: `0.2.1` · App version: `0.1.0` · Kubernetes `>= 1.27`
+- Chart version: `0.2.1` · App version: `0.2.0-alpha.1` · Kubernetes `>= 1.27`
 - Installation, upgrades and the security model: see the
   [repository README](https://github.com/open-agentix/open-agentix-helm#readme) and `docs/`.
 - Application configuration contract: platform
