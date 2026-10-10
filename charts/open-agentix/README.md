@@ -194,7 +194,13 @@ Generated from the `# --` comments in `values.yaml` by `scripts/values-table.py`
 | `proxy.httpsProxy` | string | `""` | `HTTPS_PROXY` for SDKs that honour it (AWS SDK). Per-provider `proxyUrl` is preferred. |
 | `proxy.httpProxy` | string | `""` | `HTTP_PROXY`. |
 | `proxy.noProxy` | string | `""` | `NO_PROXY`. The cluster-internal defaults are always prepended. |
-| `observability.otel.endpoint` | string | `""` | `OTEL_EXPORTER_OTLP_ENDPOINT` (OTLP/HTTP). Empty = tracing off. |
+| `observability.otel.endpoint` | string | `""` | `OTEL_EXPORTER_OTLP_ENDPOINT` (OTLP/HTTP). Empty = tracing off and every other `otel.*` value is ignored. `https://` is required unless `insecure` is true (or the host is loopback). |
+| `observability.otel.protocol` | string | `"http/protobuf"` | `OTEL_EXPORTER_OTLP_PROTOCOL`: `http/protobuf` or `http/json`. |
+| `observability.otel.insecure` | bool | `false` | `OAX_OTEL_INSECURE`: allow a plaintext `http://` collector that is not loopback. Off by default: the platform refuses to start with a plaintext endpoint otherwise. Only enable it for an in-cluster collector inside a trusted network; prefer TLS (mTLS) instead. |
+| `observability.otel.headersSecret.name` | string | `""` | Existing Secret with the exporter headers (`Name=value,Name2=value2`), mapped to `OAX_OTEL_HEADERS_SECRET` (a secret reference). Never put headers in plain values. |
+| `observability.otel.headersSecret.key` | string | `"headers"` | Key in the Secret. |
+| `observability.otel.resourceAttributes` | string | `""` | `OAX_OTEL_RESOURCE_ATTRIBUTES`: static `key=value,...` resource attributes (validated by the platform: lower-case dotted keys, no `service.name`, nothing secret-like). |
+| `observability.otel.exceptionDetail` | string | `""` | `OAX_OTEL_EXCEPTION_DETAIL`: empty/`off` or `guarded` (records the guarded exception message, capped at 256 characters). |
 | `observability.metrics.existingSecret` | string | `""` | Existing Secret with the bearer token protecting `/metrics` (`OAX_METRICS_TOKEN`). |
 | `observability.metrics.key` | string | `"token"` | Key in the Secret. |
 | `observability.serviceMonitor.enabled` | bool | `false` | Create a ServiceMonitor (Prometheus Operator CRD required). |

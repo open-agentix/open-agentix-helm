@@ -82,3 +82,12 @@ version (tag `vX.Y.Z` in this repository), `appVersion` the default platform ima
   that alter behaviour, resource renames that cause re-creation.
 
 Unknown keys are rejected by the schema, so renamed values fail loudly instead of being ignored.
+
+## OpenTelemetry endpoint hardening
+
+Platform images that contain the telemetry hardening (open-agentix#219) refuse a plaintext
+`http://` OTLP endpoint unless the host is loopback or `OAX_OTEL_INSECURE=true`, and refuse the
+standard `OTEL_EXPORTER_OTLP_HEADERS`/`_CERTIFICATE` variables. Before upgrading, check
+`observability.otel.endpoint`: use `https://` (preferably with mTLS), or set
+`observability.otel.insecure: true` for an in-cluster plaintext collector inside a trusted network.
+Exporter headers go into a Secret referenced by `observability.otel.headersSecret`.

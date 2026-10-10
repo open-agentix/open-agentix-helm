@@ -47,7 +47,8 @@ aws:
   bedrock: { enabled: true, vpcEndpointUrl: "https://vpce-1.bedrock-runtime.eu-central-1.vpce.amazonaws.com", proxyUrl: "http://proxy:3128" }
 proxy: { httpsProxy: "http://proxy:3128", httpProxy: "http://proxy:3128", noProxy: "10.0.0.0/8" }
 observability:
-  otel: { endpoint: "http://otel-collector:4318" }
+  # In-cluster plaintext collector: only inside a trusted network; prefer mTLS.
+  otel: { endpoint: "http://otel-collector:4318", insecure: true, headersSecret: { name: oax-otel-headers }, resourceAttributes: "deployment.environment=ci", exceptionDetail: guarded }
   metrics: { existingSecret: oax-metrics }
   serviceMonitor: { enabled: true, labels: { release: prom } }
   prometheusRule: { enabled: true, extraRules: [{ alert: Custom, expr: vector(0) }] }

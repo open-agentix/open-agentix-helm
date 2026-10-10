@@ -433,6 +433,28 @@ Environment shared by api and worker. Usage: include "open-agentix.env.common" (
 {{- with $v.observability.otel.endpoint }}
 - name: OTEL_EXPORTER_OTLP_ENDPOINT
   value: {{ . | quote }}
+- name: OTEL_EXPORTER_OTLP_PROTOCOL
+  value: {{ $v.observability.otel.protocol | quote }}
+{{- if $v.observability.otel.insecure }}
+- name: OAX_OTEL_INSECURE
+  value: "true"
+{{- end }}
+{{- with $v.observability.otel.headersSecret }}
+{{- if .name }}
+- name: OAX_OTEL_HEADERS_SECRET
+  value: otel-headers
+- name: OAX_SECRET_OTEL_HEADERS
+  valueFrom: { secretKeyRef: { name: {{ .name | quote }}, key: {{ .key | quote }} } }
+{{- end }}
+{{- end }}
+{{- with $v.observability.otel.resourceAttributes }}
+- name: OAX_OTEL_RESOURCE_ATTRIBUTES
+  value: {{ . | quote }}
+{{- end }}
+{{- if $v.observability.otel.exceptionDetail }}
+- name: OAX_OTEL_EXCEPTION_DETAIL
+  value: {{ $v.observability.otel.exceptionDetail | quote }}
+{{- end }}
 {{- end }}
 - name: OTEL_SERVICE_NAME
   value: {{ printf "openagentix-%s" $component | quote }}
