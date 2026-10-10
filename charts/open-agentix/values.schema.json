@@ -1008,6 +1008,36 @@
             "endpoint": {
               "type": "string",
               "pattern": "^(https?://.+)?$"
+            },
+            "protocol": {
+              "type": "string",
+              "enum": ["http/protobuf", "http/json"]
+            },
+            "insecure": {
+              "type": "boolean"
+            },
+            "headersSecret": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "pattern": "^([a-z0-9]([-a-z0-9.]*[a-z0-9])?)?$",
+                  "maxLength": 253
+                },
+                "key": {
+                  "type": "string",
+                  "pattern": "^[-._a-zA-Z0-9]+$"
+                }
+              }
+            },
+            "resourceAttributes": {
+              "type": "string",
+              "maxLength": 2048
+            },
+            "exceptionDetail": {
+              "type": "string",
+              "enum": ["", "off", "guarded"]
             }
           }
         },

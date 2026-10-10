@@ -151,6 +151,9 @@ proxy:
 observability:
   otel:
     endpoint: http://otel-collector.observability.svc:4318
+    # In-cluster plaintext collector: only inside a trusted network; prefer mTLS.
+    # Without this the platform refuses a non-loopback http:// endpoint at start-up.
+    insecure: true
   metrics:
     existingSecret: oax-metrics
   serviceMonitor:

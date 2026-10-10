@@ -129,7 +129,7 @@ Most used settings:
 | Scaling | `api.autoscaling.*`, `worker.autoscaling.*`, `worker.concurrency`, `*.pdb.*`, `defaultTopologySpread` |
 | Network | `networkPolicy.*`, `ingress.*` or `gateway.*`, `proxy.*` |
 | Modes | `demo.enabled`, `airgapped.{enabled,registry,pullPolicy,pullSecrets}` |
-| Observability | `observability.serviceMonitor.*`, `observability.prometheusRule.*`, `observability.otel.endpoint` |
+| Observability | `observability.serviceMonitor.*`, `observability.prometheusRule.*`, `observability.otel.{endpoint,protocol,insecure,headersSecret,resourceAttributes,exceptionDetail}` |
 | v0.2 preparation | `runners.kubernetesJob.*`, `runners.toolboxes.allowlist` (disabled) |
 
 ## Documentation

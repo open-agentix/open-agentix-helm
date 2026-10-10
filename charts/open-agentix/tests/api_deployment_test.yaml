@@ -364,3 +364,53 @@ tests:
       ingress.host: ""
     asserts:
       - failedTemplate: { errorPattern: "ingress.host is required" }
+
+  - it: does not render OTel settings without an endpoint
+    set:
+      observability.otel.insecure: true
+    asserts:
+      - notContains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_OTEL_INSECURE, value: "true" } }
+
+  - it: renders the OTel protocol and keeps the exporter secure by default
+    set:
+      observability.otel.endpoint: https://otel.example.org:4318
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OTEL_EXPORTER_OTLP_PROTOCOL, value: http/protobuf }
+      - notContains: { path: 'spec.template.spec.containers[0].env', content: { name: OAX_OTEL_INSECURE, value: "true" } }
+
+  - it: renders OAX_OTEL_INSECURE for a plaintext in-cluster collector
+    set:
+      observability.otel.endpoint: http://otel-collector.observability.svc:4318
+      observability.otel.insecure: true
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_OTEL_INSECURE, value: "true" }
+
+  - it: maps the exporter header Secret to a secret reference and sets the optional OTel values
+    set:
+      observability.otel.endpoint: https://otel.example.org:4318
+      observability.otel.protocol: http/json
+      observability.otel.headersSecret.name: oax-otel-headers
+      observability.otel.resourceAttributes: deployment.environment=prod
+      observability.otel.exceptionDetail: guarded
+    asserts:
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OTEL_EXPORTER_OTLP_PROTOCOL, value: http/json }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_OTEL_HEADERS_SECRET, value: otel-headers }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content:
+            name: OAX_SECRET_OTEL_HEADERS
+            valueFrom: { secretKeyRef: { name: oax-otel-headers, key: headers } }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_OTEL_RESOURCE_ATTRIBUTES, value: deployment.environment=prod }
+      - contains:
+          path: 'spec.template.spec.containers[0].env'
+          content: { name: OAX_OTEL_EXCEPTION_DETAIL, value: guarded }

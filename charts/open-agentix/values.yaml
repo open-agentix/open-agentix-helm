@@ -420,8 +420,27 @@ proxy:
 
 observability:
   otel:
-    # -- `OTEL_EXPORTER_OTLP_ENDPOINT` (OTLP/HTTP). Empty = tracing off.
+    # -- `OTEL_EXPORTER_OTLP_ENDPOINT` (OTLP/HTTP). Empty = tracing off and every other `otel.*`
+    # value is ignored. `https://` is required unless `insecure` is true (or the host is loopback).
     endpoint: ""
+    # -- `OTEL_EXPORTER_OTLP_PROTOCOL`: `http/protobuf` or `http/json`.
+    protocol: http/protobuf
+    # -- `OAX_OTEL_INSECURE`: allow a plaintext `http://` collector that is not loopback. Off by
+    # default: the platform refuses to start with a plaintext endpoint otherwise. Only enable it
+    # for an in-cluster collector inside a trusted network; prefer TLS (mTLS) instead.
+    insecure: false
+    headersSecret:
+      # -- Existing Secret with the exporter headers (`Name=value,Name2=value2`), mapped to
+      # `OAX_OTEL_HEADERS_SECRET` (a secret reference). Never put headers in plain values.
+      name: ""
+      # -- Key in the Secret.
+      key: headers
+    # -- `OAX_OTEL_RESOURCE_ATTRIBUTES`: static `key=value,...` resource attributes (validated by
+    # the platform: lower-case dotted keys, no `service.name`, nothing secret-like).
+    resourceAttributes: ""
+    # -- `OAX_OTEL_EXCEPTION_DETAIL`: empty/`off` or `guarded` (records the guarded exception
+    # message, capped at 256 characters).
+    exceptionDetail: ""
   metrics:
     # -- Existing Secret with the bearer token protecting `/metrics` (`OAX_METRICS_TOKEN`).
     existingSecret: ""

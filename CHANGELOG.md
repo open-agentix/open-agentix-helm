@@ -6,6 +6,26 @@ All notable changes to the charts in this repository are documented here. The fo
 
 ## [Unreleased]
 
+### Added
+
+- `observability.otel.protocol`, `insecure`, `headersSecret.{name,key}`, `resourceAttributes` and
+  `exceptionDetail`, rendered to `OTEL_EXPORTER_OTLP_PROTOCOL`, `OAX_OTEL_INSECURE`,
+  `OAX_OTEL_HEADERS_SECRET` (+ `OAX_SECRET_OTEL_HEADERS` from the referenced Secret),
+  `OAX_OTEL_RESOURCE_ATTRIBUTES` and `OAX_OTEL_EXCEPTION_DETAIL`. Unit tests render each of them.
+
+### Changed
+
+- **Breaking for upgraders (platform telemetry hardening, open-agentix#219):** the platform refuses
+  a plaintext `http://` OTLP endpoint unless the host is loopback or `OAX_OTEL_INSECURE=true`.
+  If `observability.otel.endpoint` is a non-loopback `http://` URL, either switch it to `https://`
+  (preferred, ideally mTLS) or set `observability.otel.insecure: true` (only inside a trusted
+  network) before upgrading to an image that contains the hardening; otherwise the pods fail at
+  start-up. Replace `config.extraEnv` workarounds for `OAX_OTEL_INSECURE` and any standard
+  `OTEL_EXPORTER_OTLP_HEADERS`/`_CERTIFICATE` variables (refused by the platform) with
+  `observability.otel.headersSecret`.
+- `examples/values-eks.yaml` and `tests/values/full.yaml` set `observability.otel.insecure: true`
+  for their plaintext in-cluster collector, with a comment recommending mTLS.
+
 ## [0.2.1] - 2026-10-04
 
 ### Changed
