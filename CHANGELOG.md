@@ -15,6 +15,8 @@ All notable changes to the charts in this repository are documented here. The fo
 
 ### Changed
 
+- Chart `appVersion` is now `0.2.0-alpha.1` (the first open-agentix pre-release; the default image tags
+  follow it). Golden files regenerated. The chart version is unchanged and is bumped at the next chart release.
 - **Breaking for upgraders (platform telemetry hardening, open-agentix#219):** the platform refuses
   a plaintext `http://` OTLP endpoint unless the host is loopback or `OAX_OTEL_INSECURE=true`.
   If `observability.otel.endpoint` is a non-loopback `http://` URL, either switch it to `https://`

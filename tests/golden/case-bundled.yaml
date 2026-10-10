@@ -10,7 +10,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -82,7 +82,7 @@ metadata:
     helm.sh/chart: open-agentix-0.3.0
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -105,7 +105,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: migrations
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -151,7 +151,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql-backup
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -199,7 +199,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -248,7 +248,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -282,7 +282,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: valkey
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -321,7 +321,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -386,7 +386,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -408,7 +408,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 automountServiceAccountToken: false
@@ -424,7 +424,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 automountServiceAccountToken: false
@@ -440,7 +440,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: generated
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   annotations:
@@ -466,7 +466,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   
@@ -504,7 +504,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql-backup
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   annotations:
@@ -526,7 +526,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -552,7 +552,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -578,7 +578,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
 spec:
@@ -604,7 +604,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: valkey
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   
@@ -631,7 +631,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: api
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   
@@ -655,7 +655,7 @@ spec:
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: api
-        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/version: "0.2.0-alpha.1"
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: open-agentix
     spec:
@@ -690,7 +690,7 @@ spec:
               app.kubernetes.io/component: api
       containers:
         - name: api
-          image: "ghcr.io/open-agentix/open-agentix-api:0.1.0"
+          image: "ghcr.io/open-agentix/open-agentix-api:0.2.0-alpha.1"
           imagePullPolicy: IfNotPresent
           command: ["node", "dist/main.js"]
           ports:
@@ -834,7 +834,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: ui
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   
@@ -853,7 +853,7 @@ spec:
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: ui
-        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/version: "0.2.0-alpha.1"
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: open-agentix
     spec:
@@ -886,7 +886,7 @@ spec:
               app.kubernetes.io/component: ui
       containers:
         - name: ui
-          image: "ghcr.io/open-agentix/open-agentix-ui:0.1.0"
+          image: "ghcr.io/open-agentix/open-agentix-ui:0.2.0-alpha.1"
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
@@ -942,7 +942,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: valkey
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   
@@ -963,7 +963,7 @@ spec:
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: valkey
-        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/version: "0.2.0-alpha.1"
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: open-agentix
     spec:
@@ -1038,7 +1038,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: worker
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   
@@ -1062,7 +1062,7 @@ spec:
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: worker
-        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/version: "0.2.0-alpha.1"
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: open-agentix
     spec:
@@ -1098,7 +1098,7 @@ spec:
               app.kubernetes.io/component: worker
       containers:
         - name: worker
-          image: "ghcr.io/open-agentix/open-agentix-worker:0.1.0"
+          image: "ghcr.io/open-agentix/open-agentix-worker:0.2.0-alpha.1"
           imagePullPolicy: IfNotPresent
           command: ["node", "dist/main.js"]
           env:
@@ -1226,7 +1226,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   
@@ -1251,7 +1251,7 @@ spec:
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: postgresql
-        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/version: "0.2.0-alpha.1"
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: open-agentix
     spec:
@@ -1367,7 +1367,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: postgresql-backup
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   
@@ -1387,7 +1387,7 @@ spec:
             app.kubernetes.io/name: open-agentix
             app.kubernetes.io/instance: oax
             app.kubernetes.io/component: postgresql-backup
-            app.kubernetes.io/version: "0.1.0"
+            app.kubernetes.io/version: "0.2.0-alpha.1"
             app.kubernetes.io/managed-by: Helm
             app.kubernetes.io/part-of: open-agentix
         spec:
@@ -1464,7 +1464,7 @@ metadata:
     app.kubernetes.io/name: open-agentix
     app.kubernetes.io/instance: oax
     app.kubernetes.io/component: migrations
-    app.kubernetes.io/version: "0.1.0"
+    app.kubernetes.io/version: "0.2.0-alpha.1"
     app.kubernetes.io/managed-by: Helm
     app.kubernetes.io/part-of: open-agentix
   annotations:
@@ -1482,7 +1482,7 @@ spec:
         app.kubernetes.io/name: open-agentix
         app.kubernetes.io/instance: oax
         app.kubernetes.io/component: migrations
-        app.kubernetes.io/version: "0.1.0"
+        app.kubernetes.io/version: "0.2.0-alpha.1"
         app.kubernetes.io/managed-by: Helm
         app.kubernetes.io/part-of: open-agentix
     spec:
@@ -1499,7 +1499,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: migrations
-          image: "ghcr.io/open-agentix/open-agentix-api:0.1.0"
+          image: "ghcr.io/open-agentix/open-agentix-api:0.2.0-alpha.1"
           imagePullPolicy: IfNotPresent
           command: ["node", "dist/migrate-cli.js"]
           env:
